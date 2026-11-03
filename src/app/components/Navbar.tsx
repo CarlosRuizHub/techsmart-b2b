@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   FileSpreadsheet,
   Layers,
-  Search,
+
   ShoppingCart,
   PhoneCall,
   CreditCard,
@@ -56,19 +56,11 @@ export default function Navbar() {
             Stock en Bodega Central Validado
           </span>
           <span className="hidden md:inline-block text-slate-500">|</span>
-          <span className="hidden md:flex items-center gap-1.5 text-slate-300">
-            <CreditCard className="w-3.5 h-3.5 text-blue-400" />
-            Línea de Crédito B2B Disponible:{" "}
-            <strong className="text-white font-semibold">
-              ${lineaCreditoDisponible.toLocaleString("en-US", { minimumFractionDigits: 2 })} USD
-            </strong>
-          </span>
+          
         </div>
 
         <div className="flex items-center space-x-4">
-          <span className="hidden lg:inline text-slate-400">
-            Despacho Mínimo Mayorista: <strong className="text-slate-200">$100.00</strong>
-          </span>
+         
           <a
             href="https://wa.me/50370008888?text=Hola,%20solicito%20asistencia%20con%20una%20orden%20B2B"
             target="_blank"
@@ -104,19 +96,6 @@ export default function Navbar() {
             </div>
           </Link>
 
-          {/* Search bar */}
-          <div className="hidden md:flex flex-1 max-w-md mx-2">
-            <div className="relative w-full">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Buscar por modelo, PN, tipo, SKU..."
-                value={globalSearch}
-                onChange={(e) => setGlobalSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs md:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
-              />
-            </div>
-          </div>
 
           {/* Navigation Links Desktop */}
           <nav className="hidden lg:flex items-center space-x-1">
