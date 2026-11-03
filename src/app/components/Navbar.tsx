@@ -10,7 +10,7 @@ import {
 
   ShoppingCart,
   PhoneCall,
-  CreditCard,
+ 
   CheckCircle2,
   Menu,
   X,
