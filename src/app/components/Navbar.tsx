@@ -20,7 +20,7 @@ import { useCart } from "@/src/lib/CartContext";
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { totalItemsCount, totalEstimado, lineaCreditoDisponible } = useCart();
+  const { totalItemsCount, totalEstimado,} = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState("");
 
