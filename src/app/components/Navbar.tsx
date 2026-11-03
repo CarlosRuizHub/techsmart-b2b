@@ -86,9 +86,6 @@ export default function Navbar() {
                 <span className="text-xl font-bold tracking-tight text-slate-900">
                   Techsmart
                 </span>
-                <span className="text-[10px] font-bold tracking-wide uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200">
-                  B2B Mayorista
-                </span>
               </div>
               <p className="text-[11px] text-slate-600 leading-tight">
                 Distribución Oficial El Salvador & C.A.
@@ -165,7 +162,7 @@ export default function Navbar() {
                   Distribuidora Tech
                   <CheckCircle2 className="w-3 h-3 text-emerald-500 inline" />
                 </div>
-                <div className="text-slate-600 text-[11px]">Ing. Carlos Morales</div>
+                <div className="text-slate-600 text-[11px]">Ing. Geovanny Segoviano</div>
               </div>
             </div>
 
