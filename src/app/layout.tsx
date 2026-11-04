@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "./components/Navbar";
 import { CartProvider } from "../lib/CartContext";
+import CheckoutModal from "./components/CheckoutModal";
+import AuthModal from "./components/AuthModal";
+import { Toaster } from "sonner"; // <-- 1. Importar Toaster
 
 export const metadata: Metadata = {
   title: "Techsmart B2B | Distribuidor Mayorista de Tecnología & Hardware",
@@ -18,6 +21,9 @@ export default function RootLayout({
     <html lang="es" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 font-sans selection:bg-blue-600 selection:text-white">
         <CartProvider>
+          {/* 2. Contenedor de notificaciones moderno */}
+          <Toaster richColors position="top-right" closeButton />
+          
           <Navbar />
           <div className="flex-1 flex flex-col">{children}</div>
           <footer className="bg-slate-900 border-t border-slate-800 text-slate-400 py-6 text-xs text-center">
@@ -30,6 +36,10 @@ export default function RootLayout({
               </div>
             </div>
           </footer>
+
+          {/* Modales Globales */}
+          <CheckoutModal />
+          <AuthModal />
         </CartProvider>
       </body>
     </html>

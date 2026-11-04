@@ -42,7 +42,12 @@ export interface Cotizacion {
   folio: string; // e.g. "COT-8492"
   fecha: string;
   vencimiento: string;
-  estado: "En Revisión" | "Aprobada" | "Pendiente de Pago" | "Despachada" | "Cancelada";
+  estado:
+    | "En Revisión"
+    | "Aprobada"
+    | "Pendiente de Pago"
+    | "Despachada"
+    | "Cancelada";
   tipoCliente: "Empresa / Corporativo" | "Cliente Particular";
   razonSocial: string;
   nit: string;
@@ -60,7 +65,12 @@ export interface Cotizacion {
   archivoAdjuntoUrl?: string;
 }
 
-export type RMAEstado = "Reportado" | "Recibido en Bodega" | "En Diagnóstico Técnico" | "Cambio Aprobado" | "Cerrado";
+export type RMAEstado =
+  | "Reportado"
+  | "Recibido en Bodega"
+  | "En Diagnóstico Técnico"
+  | "Cambio Aprobado"
+  | "Cerrado";
 
 export interface TicketRMA {
   id: string;
@@ -81,3 +91,17 @@ export interface TicketRMA {
   resolucion?: string;
 }
 
+export interface Usuario {
+  id?: string;
+  tipoCuenta: "empresarial" | "personal";
+  razonSocial?: string;
+  nit?: string;
+  nombreContacto: string;
+  telefono: string;
+  correo: string;
+  passwordHash?: string; 
+  rol: "cliente_b2b";
+  lineaCredito: number;
+  estado: "activo";
+  fechaRegistro: string;
+}

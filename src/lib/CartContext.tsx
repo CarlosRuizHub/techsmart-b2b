@@ -1,7 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { ItemCotizacion, Producto } from "./types";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import { ItemCotizacion, Producto, Usuario } from "./types";
 
 interface CartContextType {
   items: ItemCotizacion[];
@@ -15,45 +15,86 @@ interface CartContextType {
   ivaEstimado: number;
   totalEstimado: number;
   lineaCreditoDisponible: number;
+  // Modal de Pago / Checkout
+  isCheckoutOpen: boolean;
+  openCheckout: () => void;
+  closeCheckout: () => void;
+  // Modal y Estado de Autenticación Global
+  currentUser: Usuario | null;
+  isAuthOpen: boolean;
+  openAuthModal: () => void;
+  closeAuthModal: () => void;
+  login: (user: Usuario) => void;
+  logout: () => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const LOCAL_STORAGE_CART = "techsmart_cart_v1";
+const LOCAL_STORAGE_USER = "techsmart_active_user";
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<ItemCotizacion[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem(LOCAL_STORAGE_CART);
-        if (saved) {
-          return JSON.parse(saved);
-        }
-      } catch (e) {
-        console.error("Error loading cart:", e);
-      }
-    }
-    return [];
-  });
+  const [items, setItems] = useState<ItemCotizacion[]>([]);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
+  
+  // Producto pendiente de cotizar tras autenticarse
+  const [pendingItem, setPendingItem] = useState<{
+    producto: Producto;
+    cantidad: number;
+    nota: string;
+  } | null>(null);
 
-  const lineaCreditoDisponible = 45000.0; // Línea de crédito B2B asignada
+  const isMounted = useRef(false);
+  const lineaCreditoDisponible = currentUser?.lineaCredito ?? 25000.0;
 
-  // Guardar en localStorage
+  // 1. Cargar carrito y usuario desde localStorage
   useEffect(() => {
+    try {
+      const savedCart = localStorage.getItem(LOCAL_STORAGE_CART);
+      if (savedCart) {
+        const parsed = JSON.parse(savedCart);
+        requestAnimationFrame(() => setItems(parsed));
+      }
+
+      const savedUser = localStorage.getItem(LOCAL_STORAGE_USER);
+      if (savedUser) {
+        const parsedUser = JSON.parse(savedUser);
+        requestAnimationFrame(() => setCurrentUser(parsedUser));
+      }
+    } catch (e) {
+      console.error("Error cargando datos de sesión:", e);
+    }
+  }, []);
+
+  // 2. Persistir carrito ante cambios
+  useEffect(() => {
+    if (!isMounted.current) {
+      isMounted.current = true;
+      return;
+    }
     try {
       localStorage.setItem(LOCAL_STORAGE_CART, JSON.stringify(items));
     } catch (e) {
-      console.error("Error saving cart:", e);
+      console.error("Error guardando carrito:", e);
     }
   }, [items]);
 
-  const addItem = (producto: Producto, cantidad = 1, nota = "") => {
-    setItems((prev) => {
-      const existingIndex = prev.findIndex(
-        (i) => i.producto.id === producto.id
-      );
+  // Controles de modales
+  const openCheckout = () => setIsCheckoutOpen(true);
+  const closeCheckout = () => setIsCheckoutOpen(false);
 
-      // Calcular precio unitario por volumen si aplica
+  const openAuthModal = () => setIsAuthOpen(true);
+  const closeAuthModal = () => {
+    setIsAuthOpen(false);
+    setPendingItem(null);
+  };
+
+  // Lógica interna para insertar el producto al carrito
+  const executeAddItem = (producto: Producto, cantidad = 1, nota = "") => {
+    setItems((prev) => {
+      const existingIndex = prev.findIndex((i) => i.producto.id === producto.id);
       let precioUnitario = producto.precio;
       const targetQty =
         existingIndex > -1 ? prev[existingIndex].cantidad + cantidad : cantidad;
@@ -89,6 +130,35 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         ];
       }
     });
+  };
+
+  // Interceptor: valida sesión antes de agregar a la cotización
+  const addItem = (producto: Producto, cantidad = 1, nota = "") => {
+    if (!currentUser) {
+      setPendingItem({ producto, cantidad, nota });
+      setIsAuthOpen(true);
+      return;
+    }
+    executeAddItem(producto, cantidad, nota);
+  };
+
+  // Iniciar sesión y procesar producto pendiente
+  const login = (user: Usuario) => {
+    setCurrentUser(user);
+    localStorage.setItem(LOCAL_STORAGE_USER, JSON.stringify(user));
+    setIsAuthOpen(false);
+
+    if (pendingItem) {
+      executeAddItem(pendingItem.producto, pendingItem.cantidad, pendingItem.nota);
+      setPendingItem(null);
+    }
+  };
+
+  // Cerrar sesión
+  const logout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem(LOCAL_STORAGE_USER);
+    setIsAuthOpen(false);
   };
 
   const removeItem = (productoId: string) => {
@@ -127,28 +197,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const clearCart = () => {
-    setItems([]);
-  };
+  const clearCart = () => setItems([]);
 
   const totalItemsCount = items.reduce((sum, item) => sum + item.cantidad, 0);
 
-  // Subtotal base sin descuentos
   const subtotalBase = items.reduce(
     (sum, item) => sum + item.producto.precio * item.cantidad,
     0
   );
 
-  // Subtotal con precios por volumen aplicados
   const subtotalNeto = items.reduce(
     (sum, item) => sum + item.precioUnitario * item.cantidad,
     0
   );
 
-  // Descuento ganado por volumen
   const descuentoTotal = Math.max(0, subtotalBase - subtotalNeto);
-
-  // IVA El Salvador 13%
   const ivaEstimado = subtotalNeto * 0.13;
   const totalEstimado = subtotalNeto + ivaEstimado;
 
@@ -166,6 +229,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         ivaEstimado,
         totalEstimado,
         lineaCreditoDisponible,
+        isCheckoutOpen,
+        openCheckout,
+        closeCheckout,
+        currentUser,
+        isAuthOpen,
+        openAuthModal,
+        closeAuthModal,
+        login,
+        logout,
       }}
     >
       {children}
@@ -176,7 +248,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 export function useCart() {
   const context = useContext(CartContext);
   if (!context) {
-    throw new Error("useCart must be used within a CartProvider");
+    throw new Error("useCart debe utilizarse dentro de un CartProvider");
   }
   return context;
 }

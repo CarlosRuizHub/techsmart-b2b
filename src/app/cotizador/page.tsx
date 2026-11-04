@@ -41,6 +41,8 @@ export default function CotizadorPage() {
     ivaEstimado,
     totalEstimado,
     lineaCreditoDisponible,
+    currentUser,    
+    openAuthModal,
   } = useCart();
 
   // Form State
@@ -154,6 +156,32 @@ export default function CotizadorPage() {
   const handlePrint = () => {
     window.print();
   };
+
+
+  if (!currentUser) {
+  return (
+    <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-sm">
+        <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-4">
+          <ShieldCheck className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-bold text-slate-900">
+          Módulo Exclusivo para Clientes B2B
+        </h2>
+        <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+          Para generar cotizaciones, debe iniciar sesión con su cuenta corporativa o personal.
+        </p>
+        <button
+          type="button"
+          onClick={openAuthModal}
+          className="mt-6 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-blue-500/20 cursor-pointer"
+        >
+          Iniciar Sesión / Registrar Empresa o usuario
+        </button>
+      </div>
+    </main>
+  );
+}
 
   return (
     <main className="min-h-screen bg-slate-50 pb-16">
