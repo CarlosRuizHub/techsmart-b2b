@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Techsmart B2B — Web
 
-## Getting Started
+Portal web de Techsmart (El Salvador), mayorista de productos tecnológicos y suministros informáticos para clientes empresariales y personales: catálogo B2B, cotizador con precios por volumen e IVA (13 %), y reclamos de garantía (RMA).
 
-First, run the development server:
+Comparte el mismo proyecto de Firebase que la app Android ([Davies2025/techsmart-b2b-app](https://github.com/Davies2025/techsmart-b2b-app)): las cuentas, cotizaciones y reclamos se ven en ambas.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🛠️ Tecnologías
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Next.js 16** (App Router) con React y TypeScript.
+- **Tailwind CSS**, Lucide React y `sonner` para notificaciones.
+- **Firebase**: Authentication (correo y contraseña), Firestore y Storage.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🚀 Instalación y configuración
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Requisitos
 
-## Learn More
+- **Node.js 20.9 o superior** (comprobar con `node -v`).
+- **Git** y acceso a este repositorio.
 
-To learn more about Next.js, take a look at the following resources:
+### Pasos
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Clonar el repositorio e instalar dependencias:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   ```bash
+   git clone https://github.com/CarlosRuizHub/techsmart-b2b.git
+   cd techsmart-b2b
+   npm install
+   ```
 
-## Deploy on Vercel
+2. Crear el archivo **`.env.local`** en la raíz del proyecto con la configuración de Firebase. Las variables y sus valores están en el documento de configuración que comparte el equipo.
+   - Este archivo **no se sube a Git** (está en `.gitignore`) y sus valores no deben publicarse en el repositorio ni en grupos.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. Levantar el servidor de desarrollo:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   ```bash
+   npm run dev
+   ```
+
+   y abrir [http://localhost:3000](http://localhost:3000).
+
+> Si se modifica `.env.local`, hay que detener el servidor (Ctrl + C) y volver a ejecutar `npm run dev`: Next.js solo lee las variables al arrancar.
+
+### Comandos útiles
+
+| Comando | Para qué sirve |
+|---|---|
+| `npm run dev` | Servidor de desarrollo en http://localhost:3000 |
+| `npm run build` | Compilación de producción (sirve para comprobar que no hay errores) |
+| `npm run start` | Ejecuta la compilación de producción |
+| `npm run lint` | Revisión de código con ESLint |
+
+## 👤 Cuentas de usuario
+
+- El registro y el inicio de sesión usan **Firebase Authentication**. Una cuenta creada en la web funciona en la app Android y viceversa.
+- Las cuentas antiguas (las que guardaban un hash de la contraseña en Firestore) ya no sirven: hay que registrarse de nuevo.
+- Todos usamos la **misma base de datos**: lo que se cree al probar es real. Usen cuentas de prueba y borren desde la consola de Firebase lo que no sirva.
+- El catálogo (`productos`) es de solo lectura para la web: el botón "Sincronizar con Firestore" ya no puede escribir. Los productos se cargan desde la consola de Firebase o con el Admin SDK.
+
+## 🤝 Cómo trabajar en equipo
+
+1. Antes de empezar, actualizar `master`:
+
+   ```bash
+   git checkout master
+   git pull
+   ```
+
+2. Crear una rama por tarea:
+
+   ```bash
+   git checkout -b feature/nombre-de-la-tarea
+   ```
+
+3. Hacer commits en esa rama, subirla (`git push -u origin feature/nombre-de-la-tarea`) y abrir un **Pull Request** hacia `master` para que el equipo lo revise antes de unirlo. No subir cambios directo a `master`.
