@@ -19,8 +19,8 @@ import { toast } from "sonner"; // <-- Notificaciones elegantes
 import { useCart } from "@/src/lib/CartContext";
 import {
   registrarUsuario,
-  obtenerUsuarioPorCorreo,
-  hashPassword,
+  iniciarSesion,
+  mensajeErrorAuth,
 } from "@/src/lib/firebaseService";
 
 export default function AuthModal() {
@@ -64,30 +64,14 @@ export default function AuthModal() {
     }
   };
 
-  // Inicio de Sesión validando Hash y redirigiendo a Home ("/")
+  // Inicio de sesión con Firebase Authentication y redirección a Home ("/")
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      const user = await obtenerUsuarioPorCorreo(loginEmail);
-      if (!user) {
-        toast.error("Usuario no encontrado", {
-          description: "No existe ninguna cuenta registrada con este correo.",
-        });
-        return;
-      }
-
-      // Validación de contraseña mediante hash SHA-256
-      if (user.passwordHash) {
-        const hashedInput = await hashPassword(loginPass);
-        if (hashedInput !== user.passwordHash) {
-          toast.error("Contraseña incorrecta", {
-            description: "Verifica tu contraseña e inténtalo nuevamente.",
-          });
-          return;
-        }
-      }
+      // Firebase valida el correo y la contraseña; devuelve el perfil del cliente
+      const user = await iniciarSesion(loginEmail, loginPass);
 
       // 1. Activar sesión global
       login(user);
@@ -102,15 +86,15 @@ export default function AuthModal() {
       router.push("/");
     } catch (error) {
       console.error("Error al iniciar sesión:", error);
-      toast.error("Error al iniciar sesión", {
-        description: "Ocurrió un problema de red. Intenta más tarde.",
+      toast.error("No se pudo iniciar sesión", {
+        description: mensajeErrorAuth(error),
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Registro con comprobación, hash seguro y cambio de pestaña
+  // Registro con Firebase Authentication + perfil en Firestore
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -138,7 +122,8 @@ export default function AuthModal() {
     setIsSubmitting(true);
 
     try {
-      await registrarUsuario({
+      // La línea de crédito inicial se asigna dentro de registrarUsuario según el tipo de cuenta
+      const nuevoUsuario = await registrarUsuario({
         tipoCuenta,
         razonSocial: tipoCuenta === "empresarial" ? regEmpresa : regNombre,
         nit: tipoCuenta === "empresarial" ? regNit : (regDui || "Consumidor Final"),
@@ -146,28 +131,30 @@ export default function AuthModal() {
         telefono: regTelefono,
         correo: regEmail,
         password: regPassword,
-        lineaCredito: tipoCuenta === "empresarial" ? 25000.0 : 3500.0,
       });
+
+      // Firebase Auth ya dejó la sesión iniciada: se activa en la plataforma
+      login(nuevoUsuario);
 
       // Notificación estilizada de cuenta creada
       toast.success(
         `¡Cuenta ${tipoCuenta === "empresarial" ? "Empresarial" : "Personal"} creada con éxito!`,
         {
-          description: "Ya puedes ingresar tus credenciales para acceder a la plataforma.",
+          description: "Tu sesión ya está iniciada.",
           duration: 5000,
         }
       );
 
-      // Cambiar automáticamente a la pestaña de login con el correo precargado
-      setAuthTab("login");
-      setLoginEmail(regEmail);
-      setLoginPass("");
       setRegPassword("");
       setRegConfirmPassword("");
+
+      // Cerrar modal y redirigir a Home
+      closeAuthModal();
+      router.push("/");
     } catch (error) {
       console.error("Error al registrar cliente:", error);
       toast.error("Error en el registro", {
-        description: "No se pudo guardar la cuenta. Verifica tu conexión.",
+        description: mensajeErrorAuth(error),
       });
     } finally {
       setIsSubmitting(false);
