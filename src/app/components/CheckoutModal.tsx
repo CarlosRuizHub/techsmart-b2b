@@ -8,7 +8,6 @@ import {
   Building2,
   Trash2,
   CheckCircle2,
-  AlertCircle,
 } from "lucide-react";
 import { useCart } from "@/src/lib/CartContext";
 import { guardarCotizacion } from "@/src/lib/firebaseService";
@@ -18,6 +17,8 @@ export default function CheckoutModal() {
   const {
     isCheckoutOpen,
     closeCheckout,
+    openAuthModal,
+    currentUser,
     items,
     removeItem,
     clearCart,
@@ -29,18 +30,45 @@ export default function CheckoutModal() {
   } = useCart();
 
   const [metodo, setMetodo] = useState<"credito_b2b" | "cotizacion" | "transferencia">("credito_b2b");
-  const [razonSocial, setRazonSocial] = useState("Distribuidora Tech El Salvador S.A. de C.V.");
-  const [nit, setNit] = useState("0614-280392-102-1");
-  const [contacto, setContacto] = useState("Ing. Carlos Morales");
+
+  // Los datos fiscales se toman del perfil del cliente con sesión iniciada.
+  // Si el cliente los edita en el formulario, se usa lo editado (null = usar el perfil).
+  const [razonSocialEditada, setRazonSocialEditada] = useState<string | null>(null);
+  const [nitEditado, setNitEditado] = useState<string | null>(null);
+  const razonSocial = razonSocialEditada ?? currentUser?.razonSocial ?? "";
+  const nit = nitEditado ?? currentUser?.nit ?? "";
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [completado, setCompletado] = useState(false);
   const [folioGenerado, setFolioGenerado] = useState("");
 
   if (!isCheckoutOpen) return null;
 
+  const cerrarModal = () => {
+    setCompletado(false);
+    setRazonSocialEditada(null);
+    setNitEditado(null);
+    closeCheckout();
+  };
+
   const handleProcesar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) return;
+
+    // Las cotizaciones se guardan a nombre de la cuenta con sesión iniciada
+    if (!currentUser) {
+      closeCheckout();
+      openAuthModal();
+      return;
+    }
+
+    // No se puede cargar a la línea de crédito más de lo que hay disponible
+    if (metodo === "credito_b2b" && totalEstimado > lineaCreditoDisponible) {
+      alert(
+        "El total supera tu línea de crédito disponible. Elige Proforma Formal o Transferencia."
+      );
+      return;
+    }
 
     setIsProcessing(true);
     try {
@@ -57,12 +85,15 @@ export default function CheckoutModal() {
         fecha: fechaStr,
         vencimiento: "Vigencia 8 días",
         estado: metodo === "credito_b2b" ? "Aprobada" : "En Revisión",
-        tipoCliente: "Empresa / Corporativo",
+        tipoCliente:
+          currentUser.tipoCuenta === "empresarial"
+            ? "Empresa / Corporativo"
+            : "Cliente Particular",
         razonSocial,
         nit,
-        contacto,
-        telefono: "+503 7123-4567",
-        correo: "distribuidoratech@sv.com",
+        contacto: currentUser.nombreContacto,
+        telefono: currentUser.telefono,
+        correo: currentUser.correo,
         tiempoEntrega: "Inmediato (24h)",
         validezDias: 8,
         items: [...items],
@@ -79,7 +110,11 @@ export default function CheckoutModal() {
       clearCart();
     } catch (err) {
       console.error("Error al procesar orden:", err);
-      alert("Ocurrió un error al registrar la transacción.");
+      alert(
+        err instanceof Error && err.message.startsWith("Debes iniciar sesión")
+          ? err.message
+          : "Ocurrió un error al registrar la transacción."
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -97,10 +132,7 @@ export default function CheckoutModal() {
             <p className="text-xs text-slate-500">Distribución Mayorista El Salvador</p>
           </div>
           <button
-            onClick={() => {
-              setCompletado(false);
-              closeCheckout();
-            }}
+            onClick={cerrarModal}
             className="text-slate-400 hover:text-slate-700 p-1"
           >
             <X className="w-5 h-5" />
@@ -117,10 +149,7 @@ export default function CheckoutModal() {
               El pedido ha ingresado exitosamente a la cola de despacho de Bodega Central.
             </p>
             <button
-              onClick={() => {
-                setCompletado(false);
-                closeCheckout();
-              }}
+              onClick={cerrarModal}
               className="mt-4 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition"
             >
               Aceptar y Cerrar
@@ -208,7 +237,7 @@ export default function CheckoutModal() {
               </div>
             </div>
 
-            {/* Datos Fiscales Rápidos */}
+            {/* Datos Fiscales Rápidos (precargados desde el perfil) */}
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
                 <label className="text-[11px] font-semibold text-slate-600 block mb-1">Razón Social</label>
@@ -216,7 +245,7 @@ export default function CheckoutModal() {
                   type="text"
                   required
                   value={razonSocial}
-                  onChange={(e) => setRazonSocial(e.target.value)}
+                  onChange={(e) => setRazonSocialEditada(e.target.value)}
                   className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
                 />
               </div>
@@ -226,7 +255,7 @@ export default function CheckoutModal() {
                   type="text"
                   required
                   value={nit}
-                  onChange={(e) => setNit(e.target.value)}
+                  onChange={(e) => setNitEditado(e.target.value)}
                   className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
                 />
               </div>

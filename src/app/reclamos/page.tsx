@@ -16,43 +16,71 @@ import {
   ChevronRight,
   X,
 } from "lucide-react";
+import { useCart } from "@/src/lib/CartContext";
 import { TicketRMA, RMAEstado } from "@/src/lib/types";
 import { getTicketsRMA, crearTicketRMA } from "@/src/lib/firebaseService";
-import { SAMPLE_TICKETS_RMA } from "@/src/lib/sampleData";
+
+// Lista vacía con identidad estable (evita recalcular useMemo en cada render)
+const SIN_TICKETS: TicketRMA[] = [];
 
 export default function ReclamosPage() {
-  const [tickets, setTickets] = useState<TicketRMA[]>(SAMPLE_TICKETS_RMA);
+  const { currentUser, openAuthModal } = useCart();
+
+  // Tickets del cliente con sesión. Se guarda a quién pertenece la lista para no
+  // mostrar nunca los tickets de otra cuenta mientras se cargan los nuevos.
+  const [ticketsData, setTicketsData] = useState<{
+    correo: string;
+    lista: TicketRMA[];
+  } | null>(null);
+  const tickets: TicketRMA[] =
+    ticketsData && ticketsData.correo === currentUser?.correo
+      ? ticketsData.lista
+      : SIN_TICKETS;
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filterEstado, setFilterEstado] = useState<string>("Todos");
   const [showNewModal, setShowNewModal] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<TicketRMA | null>(null);
 
-  // Form State
+  // Form State (los datos del cliente se toman del perfil con sesión iniciada)
   const [formData, setFormData] = useState({
     productoNombre: "",
     sku: "",
     numeroSerie: "",
     facturaReferencia: "",
-    cliente: "Distribuidora Tech El Salvador S.A. de C.V.",
-    contacto: "Ing. Carlos Morales",
-    telefono: "+503 7123-4567",
-    correo: "carlos.morales@distribuidoratech.sv",
     descripcionFalla: "",
     esDOA: false,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [archivoEvidencia, setArchivoEvidencia] = useState<File | null>(null);
 
+  // Cargar los tickets del cliente cuando hay sesión (y al cambiar de cuenta)
+  const correoSesion = currentUser?.correo;
   useEffect(() => {
+    if (!correoSesion) return;
+    let cancelado = false;
+
     async function loadTickets() {
       const data = await getTicketsRMA();
-      setTickets(data);
+      if (!cancelado) {
+        setTicketsData({ correo: correoSesion as string, lista: data });
+      }
     }
     loadTickets();
-  }, []);
+
+    return () => {
+      cancelado = true;
+    };
+  }, [correoSesion]);
 
   const handleCreateRMA = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!currentUser) {
+      openAuthModal();
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const randomFolio = `RMA-2026-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -71,10 +99,10 @@ export default function ReclamosPage() {
         sku: formData.sku,
         numeroSerie: formData.numeroSerie,
         facturaReferencia: formData.facturaReferencia,
-        cliente: formData.cliente,
-        contacto: formData.contacto,
-        telefono: formData.telefono,
-        correo: formData.correo,
+        cliente: currentUser.razonSocial || currentUser.nombreContacto,
+        contacto: currentUser.nombreContacto,
+        telefono: currentUser.telefono,
+        correo: currentUser.correo,
         descripcionFalla: formData.descripcionFalla,
         esDOA: formData.esDOA,
         diagnosticoTecnico: formData.esDOA
@@ -83,24 +111,27 @@ export default function ReclamosPage() {
       };
 
       const saved = await crearTicketRMA(nuevoTicket);
-      setTickets((prev) => [saved, ...prev]);
+      setTicketsData({
+        correo: currentUser.correo,
+        lista: [saved, ...tickets],
+      });
       setShowNewModal(false);
       setFormData({
         productoNombre: "",
         sku: "",
         numeroSerie: "",
         facturaReferencia: "",
-        cliente: "Distribuidora Tech El Salvador S.A. de C.V.",
-        contacto: "Ing. Carlos Morales",
-        telefono: "+503 7123-4567",
-        correo: "carlos.morales@distribuidoratech.sv",
         descripcionFalla: "",
         esDOA: false,
       });
       alert(`¡Ticket de Garantía creado con éxito! Folio asignado: ${randomFolio}`);
     } catch (err) {
       console.error("Error creando RMA:", err);
-      alert("Hubo un error al procesar la solicitud de garantía.");
+      alert(
+        err instanceof Error && err.message.startsWith("Debes iniciar sesión")
+          ? err.message
+          : "Hubo un error al procesar la solicitud de garantía."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -124,7 +155,7 @@ export default function ReclamosPage() {
   const totalActivos = tickets.filter((t) => t.estado !== "Cerrado").length;
   const totalAprobados = tickets.filter((t) => t.estado === "Cambio Aprobado").length;
   const totalDiagnostico = tickets.filter((t) => t.estado === "En Diagnóstico Técnico").length;
-  const totalResueltos = tickets.filter((t) => t.estado === "Cerrado").length + 29; // total acumulado
+  const totalResueltos = tickets.filter((t) => t.estado === "Cerrado").length;
 
   const getStepNumber = (estado: RMAEstado) => {
     switch (estado) {
@@ -141,6 +172,32 @@ export default function ReclamosPage() {
         return 1;
     }
   };
+
+  // Sin sesión: el portal de garantías es exclusivo para clientes registrados
+  if (!currentUser) {
+    return (
+      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-sm">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-4">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900">
+            Portal de Garantías para Clientes
+          </h2>
+          <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+            Para consultar o iniciar solicitudes de garantía RMA, debe iniciar sesión con su cuenta corporativa o personal.
+          </p>
+          <button
+            type="button"
+            onClick={openAuthModal}
+            className="mt-6 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-blue-500/20 cursor-pointer"
+          >
+            Iniciar Sesión / Registrarme
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 pb-16">
@@ -227,7 +284,7 @@ export default function ReclamosPage() {
             </div>
             <div>
               <span className="text-xs text-slate-500 font-medium block">
-                Resueltos este Mes
+                Casos Resueltos
               </span>
               <span className="text-xl font-bold text-purple-700">
                 {totalResueltos} RMA

@@ -27,7 +27,20 @@ import {
   guardarCotizacion,
   subirArchivoAdjunto,
 } from "@/src/lib/firebaseService";
-import { SAMPLE_PRODUCTOS, SAMPLE_COTIZACIONES } from "@/src/lib/sampleData";
+import { SAMPLE_PRODUCTOS } from "@/src/lib/sampleData";
+
+type TipoCliente = "Empresa / Corporativo" | "Cliente Particular";
+type TiempoEntrega = "Inmediato (24h)" | "24 - 72 hrs" | "Bajo Pedido (7-15d)";
+
+// Campos del formulario que el cliente puede editar sobre los datos de su perfil
+interface Ediciones {
+  tipoCliente?: TipoCliente;
+  razonSocial?: string;
+  nit?: string;
+  contacto?: string;
+  telefono?: string;
+  correo?: string;
+}
 
 export default function CotizadorPage() {
   const {
@@ -45,32 +58,76 @@ export default function CotizadorPage() {
     openAuthModal,
   } = useCart();
 
-  // Form State
-  const [tipoCliente, setTipoCliente] = useState<"Empresa / Corporativo" | "Cliente Particular">("Empresa / Corporativo");
-  const [razonSocial, setRazonSocial] = useState("Distribuidora Tech El Salvador S.A. de C.V.");
-  const [nit, setNit] = useState("0614-280392-102-1 / NRC: 241902-3");
-  const [contacto, setContacto] = useState("Ing. Carlos Morales");
-  const [telefono, setTelefono] = useState("+503 7123-4567");
-  const [correo, setCorreo] = useState("carlos.morales@distribuidoratech.sv");
-  const [tiempoEntrega, setTiempoEntrega] = useState<"Inmediato (24h)" | "24 - 72 hrs" | "Bajo Pedido (7-15d)">("Inmediato (24h)");
+  // Datos fiscales y de contacto: se precargan desde el perfil del cliente con sesión iniciada.
+  // Lo que el cliente edite en el formulario tiene prioridad sobre el perfil, y las
+  // ediciones se descartan si cambia la cuenta con sesión.
+  const [edicionesDe, setEdicionesDe] = useState<{
+    correo: string | null;
+    valores: Ediciones;
+  }>({ correo: null, valores: {} });
+  const ediciones: Ediciones =
+    edicionesDe.correo === (currentUser?.correo ?? null) ? edicionesDe.valores : {};
+  const editar = (cambio: Ediciones) =>
+    setEdicionesDe({
+      correo: currentUser?.correo ?? null,
+      valores: { ...ediciones, ...cambio },
+    });
+
+  const tipoCliente: TipoCliente =
+    ediciones.tipoCliente ??
+    (currentUser?.tipoCuenta === "personal" ? "Cliente Particular" : "Empresa / Corporativo");
+  const razonSocial = ediciones.razonSocial ?? currentUser?.razonSocial ?? "";
+  const nit = ediciones.nit ?? currentUser?.nit ?? "";
+  const contacto = ediciones.contacto ?? currentUser?.nombreContacto ?? "";
+  const telefono = ediciones.telefono ?? currentUser?.telefono ?? "";
+  const correo = ediciones.correo ?? currentUser?.correo ?? "";
+
+  const setTipoCliente = (v: TipoCliente) => editar({ tipoCliente: v });
+  const setRazonSocial = (v: string) => editar({ razonSocial: v });
+  const setNit = (v: string) => editar({ nit: v });
+  const setContacto = (v: string) => editar({ contacto: v });
+  const setTelefono = (v: string) => editar({ telefono: v });
+  const setCorreo = (v: string) => editar({ correo: v });
+
+  // Resto del formulario
+  const [tiempoEntrega, setTiempoEntrega] = useState<TiempoEntrega>("Inmediato (24h)");
   const [validezDias, setValidezDias] = useState<number>(8);
   const [notas, setNotas] = useState("");
   const [archivoAdjunto, setArchivoAdjunto] = useState<File | null>(null);
 
-  // Status and Quotes list
-  const [cotizacionesList, setCotizacionesList] = useState<Cotizacion[]>(SAMPLE_COTIZACIONES);
+  // Cotizaciones del cliente con sesión. Se guarda a quién pertenece la lista para no
+  // mostrar nunca las cotizaciones de otra cuenta mientras se cargan las nuevas.
+  const [cotizacionesData, setCotizacionesData] = useState<{
+    correo: string;
+    lista: Cotizacion[];
+  } | null>(null);
+  const cotizacionesList: Cotizacion[] =
+    cotizacionesData && cotizacionesData.correo === currentUser?.correo
+      ? cotizacionesData.lista
+      : [];
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successFolio, setSuccessFolio] = useState<string | null>(null);
   const [selectedCotizacionModal, setSelectedCotizacionModal] = useState<Cotizacion | null>(null);
 
-  // Load quotes from Firebase / Storage
+  // Cargar las cotizaciones del cliente cuando hay sesión (y al cambiar de cuenta)
+  const correoSesion = currentUser?.correo;
   useEffect(() => {
+    if (!correoSesion) return;
+    let cancelado = false;
+
     async function fetchQuotes() {
       const data = await getCotizaciones();
-      setCotizacionesList(data);
+      if (!cancelado) {
+        setCotizacionesData({ correo: correoSesion as string, lista: data });
+      }
     }
     fetchQuotes();
-  }, []);
+
+    return () => {
+      cancelado = true;
+    };
+  }, [correoSesion]);
 
   // Quick preset template handler
   const handleApplyPreset = (presetName: string) => {
@@ -93,6 +150,12 @@ export default function CotizadorPage() {
 
   const handleSubmitCotizacion = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!currentUser) {
+      openAuthModal();
+      return;
+    }
+
     if (items.length === 0) {
       alert("Por favor agrega al menos un ítem a la cotización desde el catálogo o plantillas rápidas.");
       return;
@@ -142,12 +205,19 @@ export default function CotizadorPage() {
       };
 
       const saved = await guardarCotizacion(nuevaCot);
-      setCotizacionesList((prev) => [saved, ...prev]);
+      setCotizacionesData({
+        correo: currentUser.correo,
+        lista: [saved, ...cotizacionesList],
+      });
       setSuccessFolio(randomFolio);
       clearCart();
     } catch (err) {
       console.error("Error guardando cotización:", err);
-      alert("Hubo un error al procesar la cotización.");
+      alert(
+        err instanceof Error && err.message.startsWith("Debes iniciar sesión")
+          ? err.message
+          : "Hubo un error al procesar la cotización."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -673,6 +743,11 @@ export default function CotizadorPage() {
               </div>
 
               <div className="mt-3 space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                {cotizacionesList.length === 0 && (
+                  <p className="py-6 text-center text-xs text-slate-400">
+                    Aún no tienes cotizaciones registradas.
+                  </p>
+                )}
                 {cotizacionesList.map((cot) => (
                   <div
                     key={cot.id}

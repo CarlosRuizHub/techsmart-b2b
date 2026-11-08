@@ -2,6 +2,11 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { ItemCotizacion, Producto, Usuario } from "./types";
+import {
+  observarSesion,
+  cerrarSesion,
+  obtenerUsuarioPorCorreo,
+} from "./firebaseService";
 
 interface CartContextType {
   items: ItemCotizacion[];
@@ -49,7 +54,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const isMounted = useRef(false);
   const lineaCreditoDisponible = currentUser?.lineaCredito ?? 25000.0;
 
-  // 1. Cargar carrito y usuario desde localStorage
+  // 1. Cargar carrito y usuario desde localStorage (para mostrar la interfaz al instante)
   useEffect(() => {
     try {
       const savedCart = localStorage.getItem(LOCAL_STORAGE_CART);
@@ -66,6 +71,36 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.error("Error cargando datos de sesión:", e);
     }
+  }, []);
+
+  // 1b. Sincronizar con Firebase Authentication, que es la fuente de verdad de la sesión.
+  // Si Firebase no tiene sesión, se descarta cualquier usuario guardado en localStorage.
+  useEffect(() => {
+    const cancelarSuscripcion = observarSesion(async (firebaseUser) => {
+      if (!firebaseUser?.email) {
+        setCurrentUser(null);
+        try {
+          localStorage.removeItem(LOCAL_STORAGE_USER);
+        } catch {
+          // ignore
+        }
+        return;
+      }
+
+      // Se carga el perfil actualizado. Si todavía no existe (por ejemplo, justo al
+      // registrarse), no se hace nada: login() lo establecerá cuando termine el registro.
+      const perfil = await obtenerUsuarioPorCorreo(firebaseUser.email);
+      if (perfil) {
+        setCurrentUser(perfil);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_USER, JSON.stringify(perfil));
+        } catch {
+          // ignore
+        }
+      }
+    });
+
+    return cancelarSuscripcion;
   }, []);
 
   // 2. Persistir carrito ante cambios
@@ -154,10 +189,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Cerrar sesión
+  // Cerrar sesión: cierra también la sesión de Firebase y vacía la cotización en curso
+  // para que no pase a la siguiente persona que use este navegador.
   const logout = () => {
+    cerrarSesion().catch((e) => console.error("Error cerrando sesión:", e));
     setCurrentUser(null);
     localStorage.removeItem(LOCAL_STORAGE_USER);
+    setItems([]);
     setIsAuthOpen(false);
   };
 

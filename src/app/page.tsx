@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -9,107 +9,49 @@ import {
   FileSpreadsheet,
   CheckCircle,
   ArrowRight,
-  Lock,
-  Mail,
-  Building,
-  PhoneCall,
-  Eye,
-  EyeOff,
-  X,
 } from "lucide-react";
 import { useCart } from "@/src/lib/CartContext";
-import { registrarUsuario, obtenerUsuarioPorCorreo } from "@/src/lib/firebaseService";
 
-export default function LandingB2BPage() {
-  const router = useRouter();
+// Abre el modal de acceso si la URL viene con ?auth=login y no hay sesión.
+// Va aparte y dentro de <Suspense> porque Next exige ese límite para useSearchParams
+// (si no, falla el prerender de "/" en `next build`).
+function AbrirAccesoDesdeUrl() {
   const searchParams = useSearchParams();
-  const { openCheckout } = useCart();
+  const { openAuthModal, currentUser } = useCart();
 
-  // Estados del Modal
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [authTab, setAuthTab] = useState<"login" | "register">("login");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
-
-  // Abrir modal si la URL viene con ?auth=login de forma diferida
   useEffect(() => {
-    if (searchParams.get("auth") === "login") {
-      const frame = requestAnimationFrame(() => {
-        setAuthTab("login");
-        setIsAuthOpen(true);
-      });
+    if (searchParams.get("auth") === "login" && !currentUser) {
+      const frame = requestAnimationFrame(() => openAuthModal());
       return () => cancelAnimationFrame(frame);
     }
-  }, [searchParams]);
+    // openAuthModal es estable en la práctica; no se incluye para no reabrir el modal en cada render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, currentUser]);
 
-  // Estados de Login
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPass, setLoginPass] = useState("");
+  return null;
+}
 
-  // Estados de Registro
-  const [regEmpresa, setRegEmpresa] = useState("");
-  const [regNit, setRegNit] = useState("");
-  const [regNombre, setRegNombre] = useState("");
-  const [regTelefono, setRegTelefono] = useState("");
-  const [regEmail, setRegEmail] = useState("");
+// El inicio de sesión y el registro los maneja el AuthModal global (layout.tsx)
+// con Firebase Authentication. Esta página solo lo abre.
+export default function LandingB2BPage() {
+  const router = useRouter();
+  const { openCheckout, openAuthModal, currentUser } = useCart();
 
-  // Manejo de Login
-  const handleB2BLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmittingAuth(true);
-
-    try {
-      const user = await obtenerUsuarioPorCorreo(loginEmail);
-      if (user) {
-        localStorage.setItem("techsmart_active_user", JSON.stringify(user));
-        setIsAuthOpen(false);
-        router.push("/catalogo");
-      } else {
-        alert("No se encontró ningún cliente registrado con ese correo corporativo.");
-      }
-    } catch (error) {
-      console.error("Error al iniciar sesión:", error);
-      alert("Error al iniciar sesión.");
-    } finally {
-      setIsSubmittingAuth(false);
-    }
-  };
-
- // Manejo de Registro 
-  const handleB2BRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmittingAuth(true);
-
-    try {
-      await registrarUsuario({
-        tipoCuenta: "empresarial",
-        razonSocial: regEmpresa,
-        nit: regNit,
-        nombreContacto: regNombre,
-        telefono: regTelefono,
-        correo: regEmail,
-        lineaCredito: 25000.0,
-      });
-
-      alert("¡Cuenta registrada con éxito! Ya puedes iniciar sesión con tus credenciales.");
-
-      // Cambiar a la pestaña login y autocompletar el correo
-      setAuthTab("login");
-      setLoginEmail(regEmail);
-      setLoginPass("");
-      
-      // Navegación interna optimizada de Next.js (elimina el error del linter)
-      router.push("/?auth=login");
-    } catch (error) {
-      console.error("Error al registrar cliente:", error);
-      alert("No se pudo completar el registro. Intenta nuevamente.");
-    } finally {
-      setIsSubmittingAuth(false);
+  // Con sesión iniciada el botón lleva directo al catálogo
+  const ingresarAlPortal = () => {
+    if (currentUser) {
+      router.push("/catalogo");
+    } else {
+      openAuthModal();
     }
   };
 
   return (
     <div className="relative min-h-screen bg-white">
+      <Suspense fallback={null}>
+        <AbrirAccesoDesdeUrl />
+      </Suspense>
+
       {/* 1. Hero Section - Hub Logístico */}
       <section className="relative bg-slate-900 text-white py-20 lg:py-28 overflow-hidden">
         <div
@@ -150,13 +92,10 @@ export default function LandingB2BPage() {
 
             <div className="mt-8 flex flex-wrap gap-4">
               <button
-                onClick={() => {
-                  setAuthTab("login");
-                  setIsAuthOpen(true);
-                }}
+                onClick={ingresarAlPortal}
                 className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-600/30 transition flex items-center gap-2 cursor-pointer"
               >
-                Ingresar al Portal B2B
+                {currentUser ? "Ir al Portal B2B" : "Ingresar al Portal B2B"}
                 <ArrowRight className="w-4 h-4" />
               </button>
               <Link
@@ -330,193 +269,6 @@ export default function LandingB2BPage() {
           ))}
         </div>
       </section>
-
-      {/* 5. Modal de Autenticación (Login & Registro) */}
-      {isAuthOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/65 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="text-base sm:text-lg font-black text-slate-900">Portal B2B Techsmart</h3>
-                <p className="text-xs text-slate-500">Acceda a su cuenta o cree una nueva</p>
-              </div>
-              <button
-                onClick={() => setIsAuthOpen(false)}
-                className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex border-b border-slate-100 text-xs mt-4">
-              <button
-                onClick={() => setAuthTab("login")}
-                className={`flex-1 py-2 font-bold transition border-b-2 cursor-pointer ${
-                  authTab === "login"
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                Ingresar
-              </button>
-              <button
-                onClick={() => setAuthTab("register")}
-                className={`flex-1 py-2 font-bold transition border-b-2 cursor-pointer ${
-                  authTab === "register"
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                Registrarse
-              </button>
-            </div>
-
-            {authTab === "login" ? (
-              <form onSubmit={handleB2BLogin} className="mt-4 space-y-4">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                    Correo Electrónico Corporativo
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="email"
-                      required
-                      placeholder="usuario@tuempresa.com"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                    Contraseña
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      required
-                      placeholder="••••••••"
-                      value={loginPass}
-                      onChange={(e) => setLoginPass(e.target.value)}
-                      className="w-full pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="text-slate-400 hover:text-slate-600 absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmittingAuth}
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold rounded-xl text-xs transition cursor-pointer"
-                >
-                  {isSubmittingAuth ? "Verificando..." : "Iniciar Sesión B2B"}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleB2BRegister} className="mt-4 space-y-3">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                    Razón Social / Empresa:
-                  </label>
-                  <div className="relative">
-                    <Building className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ej. Soluciones Digitales S.A. de C.V."
-                      value={regEmpresa}
-                      onChange={(e) => setRegEmpresa(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                      NIT / NRC:
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="0614-280392-102-1"
-                      value={regNit}
-                      onChange={(e) => setRegNit(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                      Contacto Comercial:
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Carlos Morales"
-                      value={regNombre}
-                      onChange={(e) => setRegNombre(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                    Número de Celular / WhatsApp:
-                  </label>
-                  <div className="relative">
-                    <PhoneCall className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="tel"
-                      required
-                      placeholder="+503 7123-4567"
-                      value={regTelefono}
-                      onChange={(e) => setRegTelefono(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                    Correo Electrónico Corporativo:
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="email"
-                      required
-                      placeholder="compras@tuempresa.com"
-                      value={regEmail}
-                      onChange={(e) => setRegEmail(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmittingAuth}
-                  className="w-full py-2.5 mt-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold rounded-xl text-xs transition shadow-md shadow-blue-500/20 cursor-pointer"
-                >
-                  {isSubmittingAuth ? "Creando cuenta..." : "Crear Cuenta B2B & Activar Cupo"}
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

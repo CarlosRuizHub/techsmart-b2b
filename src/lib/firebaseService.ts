@@ -2,22 +2,28 @@
 import {
   collection,
   getDocs,
+  getDoc,
   addDoc,
   query,
-  orderBy,
   serverTimestamp,
   doc,
   setDoc,
   where,
+  type DocumentData,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "./firebase";
-import { Producto, Cotizacion, TicketRMA, Usuario } from "./types";
+import { FirebaseError } from "firebase/app";
 import {
-  SAMPLE_PRODUCTOS,
-  SAMPLE_COTIZACIONES,
-  SAMPLE_TICKETS_RMA,
-} from "./sampleData";
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  onAuthStateChanged,
+  type User,
+} from "firebase/auth";
+import { db, storage, auth } from "./firebase";
+import { Producto, Cotizacion, TicketRMA, Usuario } from "./types";
+import { SAMPLE_PRODUCTOS } from "./sampleData";
 
 const STORAGE_KEYS = {
   COTIZACIONES: "techsmart_cotizaciones_local",
@@ -25,14 +31,49 @@ const STORAGE_KEYS = {
   CART: "techsmart_cart_items",
 };
 
-// ================= SEGURIDAD Y HASHING =================
-// Genera un hash SHA-256 nativo sin necesidad de librerías externas pesadas
-export async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+// ================= UTILIDADES DE SESIÓN Y RESPALDO LOCAL =================
+
+// Devuelve el correo (en minúsculas) de la sesión activa, o null si no hay sesión.
+// Espera a que Firebase termine de restaurar la sesión guardada al cargar la página.
+async function correoDeSesion(): Promise<string | null> {
+  await auth.authStateReady();
+  return auth.currentUser?.email?.toLowerCase() ?? null;
+}
+
+// Errores que NO deben esconderse con un respaldo local: significan que falta
+// sesión o permiso, y el usuario debe enterarse de que no se guardó.
+function esErrorDePermisos(err: unknown): boolean {
+  return (
+    err instanceof FirebaseError &&
+    (err.code === "permission-denied" || err.code === "unauthenticated")
+  );
+}
+
+// El respaldo local se guarda por usuario para que dos cuentas
+// en el mismo navegador no vean los datos de la otra.
+function leerLocal<T>(claveBase: string, correo: string): T[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(`${claveBase}_${correo}`);
+    return raw ? (JSON.parse(raw) as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function guardarLocal<T>(claveBase: string, correo: string, lista: T[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(`${claveBase}_${correo}`, JSON.stringify(lista));
+  } catch {
+    // ignore
+  }
+}
+
+// Orden del más reciente al más antiguo usando createdAt (evita pedir un índice compuesto)
+function marcaDeTiempo(data: DocumentData): number {
+  const c = data.createdAt;
+  return c && typeof c.toMillis === "function" ? c.toMillis() : 0;
 }
 
 // ================= PRODUCTOS =================
@@ -102,7 +143,9 @@ export async function getProductos(): Promise<Producto[]> {
   }
 }
 
-// Inicializar catálogo en Firestore si está vacío
+// Inicializar catálogo en Firestore si está vacío.
+// OJO: con las reglas de seguridad nuevas el cliente ya no puede escribir en "productos";
+// la carga inicial debe hacerse con el script de sembrado (Admin SDK) o desde la consola.
 export async function seedProductosEnFirestore(): Promise<void> {
   try {
     const colRef = collection(db, "productos");
@@ -123,169 +166,157 @@ export async function seedProductosEnFirestore(): Promise<void> {
 }
 
 // ================= COTIZACIONES =================
+// Cada cotización pertenece a la cuenta que la creó (campo "usuarioCorreo").
+// El campo "correo" sigue siendo el correo de contacto escrito en el formulario.
+
+// Devuelve solo las cotizaciones del usuario con sesión iniciada
 export async function getCotizaciones(): Promise<Cotizacion[]> {
+  const usuarioCorreo = await correoDeSesion();
+  if (!usuarioCorreo) return [];
+
   try {
-    const q = query(collection(db, "cotizaciones"), orderBy("fecha", "desc"));
+    const q = query(
+      collection(db, "cotizaciones"),
+      where("usuarioCorreo", "==", usuarioCorreo),
+    );
     const snapshot = await getDocs(q);
 
-    if (snapshot.empty) {
-      if (typeof window !== "undefined") {
-        const local = localStorage.getItem(STORAGE_KEYS.COTIZACIONES);
-        if (local) {
-          try {
-            return JSON.parse(local);
-          } catch {
-            // ignore
-          }
-        }
-      }
-      return SAMPLE_COTIZACIONES;
-    }
+    const lista = [...snapshot.docs]
+      .sort((a, b) => marcaDeTiempo(b.data()) - marcaDeTiempo(a.data()))
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as Cotizacion);
 
-    const lista: Cotizacion[] = [];
-    snapshot.forEach((docSnap) => {
-      lista.push({ id: docSnap.id, ...docSnap.data() } as Cotizacion);
-    });
+    guardarLocal(STORAGE_KEYS.COTIZACIONES, usuarioCorreo, lista);
     return lista;
   } catch (err) {
+    if (esErrorDePermisos(err)) {
+      console.error("Sin permiso para leer cotizaciones:", err);
+      return [];
+    }
     console.warn(
-      "Error obteniendo cotizaciones de Firestore, usando respaldo:",
+      "Error obteniendo cotizaciones de Firestore, usando respaldo local:",
       err,
     );
-    if (typeof window !== "undefined") {
-      const local = localStorage.getItem(STORAGE_KEYS.COTIZACIONES);
-      if (local) {
-        try {
-          return JSON.parse(local);
-        } catch {
-          // ignore
-        }
-      }
-    }
-    return SAMPLE_COTIZACIONES;
+    return leerLocal<Cotizacion>(STORAGE_KEYS.COTIZACIONES, usuarioCorreo);
   }
 }
 
 export async function guardarCotizacion(
   cotizacion: Omit<Cotizacion, "id">,
 ): Promise<Cotizacion> {
+  const usuarioCorreo = await correoDeSesion();
+  if (!usuarioCorreo) {
+    throw new Error("Debes iniciar sesión para guardar una cotización.");
+  }
+
+  // El propietario siempre es la cuenta con sesión, sin importar lo que llegue del formulario
+  const datos = { ...cotizacion, usuarioCorreo };
+
   try {
     const docRef = await addDoc(collection(db, "cotizaciones"), {
-      ...cotizacion,
+      ...datos,
       createdAt: serverTimestamp(),
     });
-    const nuevaCotizacion = { id: docRef.id, ...cotizacion };
+    const nuevaCotizacion: Cotizacion = { id: docRef.id, ...datos };
 
-    if (typeof window !== "undefined") {
-      const current = await getCotizaciones();
-      localStorage.setItem(
-        STORAGE_KEYS.COTIZACIONES,
-        JSON.stringify([
-          nuevaCotizacion,
-          ...current.filter((c) => c.id !== docRef.id),
-        ]),
-      );
-    }
+    const actuales = leerLocal<Cotizacion>(
+      STORAGE_KEYS.COTIZACIONES,
+      usuarioCorreo,
+    );
+    guardarLocal(STORAGE_KEYS.COTIZACIONES, usuarioCorreo, [
+      nuevaCotizacion,
+      ...actuales.filter((c) => c.id !== docRef.id),
+    ]);
 
     return nuevaCotizacion;
   } catch (err) {
+    // Sin sesión o sin permiso: no se esconde con un respaldo local
+    if (esErrorDePermisos(err)) throw err;
+
     console.warn(
       "Firestore error guardando cotización, guardando en local storage:",
       err,
     );
-    const nuevaCotizacion = {
-      ...cotizacion,
+    const nuevaCotizacion: Cotizacion = {
+      ...datos,
       id: `local-cot-${Date.now()}`,
     };
-
-    if (typeof window !== "undefined") {
-      const current = await getCotizaciones();
-      localStorage.setItem(
-        STORAGE_KEYS.COTIZACIONES,
-        JSON.stringify([nuevaCotizacion, ...current]),
-      );
-    }
+    const actuales = leerLocal<Cotizacion>(
+      STORAGE_KEYS.COTIZACIONES,
+      usuarioCorreo,
+    );
+    guardarLocal(STORAGE_KEYS.COTIZACIONES, usuarioCorreo, [
+      nuevaCotizacion,
+      ...actuales,
+    ]);
     return nuevaCotizacion;
   }
 }
 
 // ================= TICKETS RMA =================
+// Igual que las cotizaciones: cada ticket pertenece a la cuenta que lo creó.
+
+// Devuelve solo los tickets del usuario con sesión iniciada
 export async function getTicketsRMA(): Promise<TicketRMA[]> {
+  const usuarioCorreo = await correoDeSesion();
+  if (!usuarioCorreo) return [];
+
   try {
-    const q = query(collection(db, "rma_tickets"), orderBy("fecha", "desc"));
+    const q = query(
+      collection(db, "rma_tickets"),
+      where("usuarioCorreo", "==", usuarioCorreo),
+    );
     const snapshot = await getDocs(q);
 
-    if (snapshot.empty) {
-      if (typeof window !== "undefined") {
-        const local = localStorage.getItem(STORAGE_KEYS.RMA);
-        if (local) {
-          try {
-            return JSON.parse(local);
-          } catch {
-            // ignore
-          }
-        }
-      }
-      return SAMPLE_TICKETS_RMA;
-    }
+    const lista = [...snapshot.docs]
+      .sort((a, b) => marcaDeTiempo(b.data()) - marcaDeTiempo(a.data()))
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as TicketRMA);
 
-    const lista: TicketRMA[] = [];
-    snapshot.forEach((docSnap) => {
-      lista.push({ id: docSnap.id, ...docSnap.data() } as TicketRMA);
-    });
+    guardarLocal(STORAGE_KEYS.RMA, usuarioCorreo, lista);
     return lista;
   } catch (err) {
-    console.warn("Error leyendo RMA de Firestore, usando respaldo:", err);
-    if (typeof window !== "undefined") {
-      const local = localStorage.getItem(STORAGE_KEYS.RMA);
-      if (local) {
-        try {
-          return JSON.parse(local);
-        } catch {
-          // ignore
-        }
-      }
+    if (esErrorDePermisos(err)) {
+      console.error("Sin permiso para leer tickets RMA:", err);
+      return [];
     }
-    return SAMPLE_TICKETS_RMA;
+    console.warn("Error leyendo RMA de Firestore, usando respaldo local:", err);
+    return leerLocal<TicketRMA>(STORAGE_KEYS.RMA, usuarioCorreo);
   }
 }
 
 export async function crearTicketRMA(
   ticket: Omit<TicketRMA, "id">,
 ): Promise<TicketRMA> {
+  const usuarioCorreo = await correoDeSesion();
+  if (!usuarioCorreo) {
+    throw new Error("Debes iniciar sesión para crear un reclamo.");
+  }
+
+  const datos = { ...ticket, usuarioCorreo };
+
   try {
     const docRef = await addDoc(collection(db, "rma_tickets"), {
-      ...ticket,
+      ...datos,
       createdAt: serverTimestamp(),
     });
-    const nuevoTicket = { id: docRef.id, ...ticket };
+    const nuevoTicket: TicketRMA = { id: docRef.id, ...datos };
 
-    if (typeof window !== "undefined") {
-      const current = await getTicketsRMA();
-      localStorage.setItem(
-        STORAGE_KEYS.RMA,
-        JSON.stringify([
-          nuevoTicket,
-          ...current.filter((t) => t.id !== docRef.id),
-        ]),
-      );
-    }
+    const actuales = leerLocal<TicketRMA>(STORAGE_KEYS.RMA, usuarioCorreo);
+    guardarLocal(STORAGE_KEYS.RMA, usuarioCorreo, [
+      nuevoTicket,
+      ...actuales.filter((t) => t.id !== docRef.id),
+    ]);
 
     return nuevoTicket;
   } catch (err) {
+    if (esErrorDePermisos(err)) throw err;
+
     console.warn("Error en Firestore para RMA, guardando local:", err);
-    const nuevoTicket = {
-      ...ticket,
+    const nuevoTicket: TicketRMA = {
+      ...datos,
       id: `local-rma-${Date.now()}`,
     };
-
-    if (typeof window !== "undefined") {
-      const current = await getTicketsRMA();
-      localStorage.setItem(
-        STORAGE_KEYS.RMA,
-        JSON.stringify([nuevoTicket, ...current]),
-      );
-    }
+    const actuales = leerLocal<TicketRMA>(STORAGE_KEYS.RMA, usuarioCorreo);
+    guardarLocal(STORAGE_KEYS.RMA, usuarioCorreo, [nuevoTicket, ...actuales]);
     return nuevoTicket;
   }
 }
@@ -301,49 +332,153 @@ export async function subirArchivoAdjunto(
     const downloadUrl = await getDownloadURL(snapshot.ref);
     return downloadUrl;
   } catch (err) {
+    // Sin sesión o sin permiso: una URL local simulada no le serviría a nadie
+    if (
+      err instanceof FirebaseError &&
+      (err.code === "storage/unauthorized" ||
+        err.code === "storage/unauthenticated")
+    ) {
+      throw err;
+    }
     console.warn("Firebase storage error, generando URL local simulada:", err);
     return URL.createObjectURL(file);
   }
 }
 
-// ================= GESTIÓN DE USUARIOS =================
-// Registra al cliente directamente en la colección 'usuarios' con contraseña encriptada
+// ================= AUTENTICACIÓN Y USUARIOS =================
+// Las cuentas viven en Firebase Authentication (compartidas con la app móvil).
+// El perfil del cliente se guarda en Firestore, colección "usuarios",
+// con el correo normalizado como ID del documento.
+
+// Traduce los errores de Firebase Auth a mensajes para el usuario
+export function mensajeErrorAuth(err: unknown): string {
+  const code = err instanceof FirebaseError ? err.code : "";
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "Este correo ya está registrado.";
+    case "auth/weak-password":
+      return "La contraseña debe tener al menos 6 caracteres.";
+    case "auth/invalid-email":
+      return "El correo no es válido.";
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "Correo o contraseña incorrectos.";
+    case "auth/too-many-requests":
+      return "Demasiados intentos. Inténtalo de nuevo más tarde.";
+    case "auth/network-request-failed":
+      return "Sin conexión a internet.";
+    default:
+      return "Ocurrió un error. Inténtalo de nuevo.";
+  }
+}
+
+function fechaRegistroActual(): string {
+  return new Date().toLocaleDateString("es-SV", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+// Firestore rechaza valores undefined (por ejemplo razonSocial en cuentas personales)
+function sinUndefined<T extends object>(obj: T): T {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined),
+  ) as T;
+}
+
+// Línea de crédito inicial según el tipo de cuenta.
+// Las reglas de Firestore validan estos mismos valores: si cambian aquí, hay que cambiarlos allá.
+export const LINEA_CREDITO_INICIAL = {
+  empresarial: 25000,
+  personal: 3500,
+} as const;
+
+// Registra al cliente: crea la cuenta en Authentication y su perfil en Firestore
 export async function registrarUsuario(
-  datos: Omit<Usuario, "id" | "rol" | "estado" | "fechaRegistro"> & {
-    password?: string;
+  datos: Omit<
+    Usuario,
+    "id" | "rol" | "estado" | "fechaRegistro" | "origen" | "lineaCredito"
+  > & {
+    password: string;
   },
 ): Promise<Usuario> {
   const correoNormalizado = datos.correo.trim().toLowerCase();
-  const docRef = doc(db, "usuarios", correoNormalizado);
 
-  // Generar hash seguro si se ingresó contraseña
-  let passwordHash = "";
-  if (datos.password) {
-    passwordHash = await hashPassword(datos.password);
-  }
-
-  // Extraemos 'password' para que bajo ninguna circunstancia se guarde en texto plano
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // Se separa password para que bajo ninguna circunstancia se guarde en Firestore
   const { password, ...restoDatos } = datos;
 
-  const nuevoUsuario: Usuario = {
+  // 1. Cuenta en Firebase Authentication (la contraseña la gestiona Firebase)
+  await createUserWithEmailAndPassword(auth, correoNormalizado, password);
+
+  // 2. Perfil en Firestore
+  const nuevoUsuario: Usuario = sinUndefined({
     ...restoDatos,
     correo: correoNormalizado,
-    passwordHash,
-    rol: "cliente_b2b",
-    estado: "activo",
-    fechaRegistro: new Date().toLocaleDateString("es-SV", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }),
-  };
+    rol: "cliente_b2b" as const,
+    lineaCredito: LINEA_CREDITO_INICIAL[datos.tipoCuenta],
+    estado: "activo" as const,
+    fechaRegistro: fechaRegistroActual(),
+    origen: "web" as const,
+    createdAt: serverTimestamp(),
+  });
 
-  await setDoc(docRef, nuevoUsuario);
+  await setDoc(doc(db, "usuarios", correoNormalizado), nuevoUsuario);
   return { id: correoNormalizado, ...nuevoUsuario };
 }
 
-// Búsqueda de cliente para inicio de sesión directo
+// Inicio de sesión: valida con Firebase Auth y devuelve el perfil del cliente
+export async function iniciarSesion(
+  correo: string,
+  password: string,
+): Promise<Usuario> {
+  const correoNormalizado = correo.trim().toLowerCase();
+  const credencial = await signInWithEmailAndPassword(
+    auth,
+    correoNormalizado,
+    password,
+  );
+
+  const docRef = doc(db, "usuarios", correoNormalizado);
+  const snap = await getDoc(docRef);
+
+  if (snap.exists()) {
+    return { id: snap.id, ...(snap.data() as Omit<Usuario, "id">) };
+  }
+
+  // La cuenta existe en Authentication pero no tiene perfil en Firestore
+  // (por ejemplo, si falló el guardado durante el registro): se crea uno básico.
+  const perfilBasico: Usuario = {
+    tipoCuenta: "personal",
+    nombreContacto: credencial.user.displayName ?? "",
+    telefono: "",
+    correo: correoNormalizado,
+    rol: "cliente_b2b",
+    lineaCredito: LINEA_CREDITO_INICIAL.personal,
+    estado: "activo",
+    fechaRegistro: fechaRegistroActual(),
+    origen: "web",
+    createdAt: serverTimestamp(),
+  };
+  await setDoc(docRef, perfilBasico);
+  return { id: correoNormalizado, ...perfilBasico };
+}
+
+export async function cerrarSesion(): Promise<void> {
+  await signOut(auth);
+}
+
+export async function enviarRecuperacionPassword(correo: string): Promise<void> {
+  await sendPasswordResetEmail(auth, correo.trim().toLowerCase());
+}
+
+// Para escuchar cambios de sesión (por ejemplo desde un contexto de React)
+export function observarSesion(callback: (user: User | null) => void) {
+  return onAuthStateChanged(auth, callback);
+}
+
+// Búsqueda de perfil de cliente por correo
 export async function obtenerUsuarioPorCorreo(
   correo: string,
 ): Promise<Usuario | null> {

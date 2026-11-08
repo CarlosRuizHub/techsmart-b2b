@@ -91,6 +91,8 @@ export interface TicketRMA {
   resolucion?: string;
 }
 
+// El perfil se guarda en Firestore (colección "usuarios", ID = correo en minúsculas).
+// La contraseña la gestiona Firebase Authentication: ya NO se guarda aquí.
 export interface Usuario {
   id?: string;
   tipoCuenta: "empresarial" | "personal";
@@ -99,9 +101,10 @@ export interface Usuario {
   nombreContacto: string;
   telefono: string;
   correo: string;
-  passwordHash?: string; 
   rol: "cliente_b2b";
-  lineaCredito: number;
+  lineaCredito: number; // Cupo inicial según tipo de cuenta (empresarial 25000, personal 3500); solo un administrador puede cambiarlo
   estado: "activo";
   fechaRegistro: string;
+  origen?: "app" | "web"; // Desde dónde se registró el usuario
+  createdAt?: unknown; // Timestamp de Firestore (serverTimestamp)
 }
