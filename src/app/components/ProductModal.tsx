@@ -1,16 +1,20 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
 import {
   X,
   ShieldCheck,
-  Check,
-  Truck,
+  Building,
+  CheckCircle2,
+  Clock,
+  Layers,
   ShoppingCart,
+  Minus,
+  Plus,
 } from "lucide-react";
 import { Producto } from "@/src/lib/types";
 import { useCart } from "@/src/lib/CartContext";
+import ProductImageGallery from "./ProductImageGallery";
 
 interface ProductModalProps {
   producto: Producto | null;
@@ -20,241 +24,218 @@ interface ProductModalProps {
 export default function ProductModal({ producto, onClose }: ProductModalProps) {
   const { addItem } = useCart();
   const [cantidad, setCantidad] = useState(1);
-  const [notaInterna, setNotaInterna] = useState("");
-  const [added, setAdded] = useState(false);
 
   if (!producto) return null;
 
-  const basePrice = producto.precio ?? 0;
-  let currentUnitPrice = basePrice;
-  if (producto.precioVolumen && producto.precioVolumen.length > 0) {
-    const sortedTiers = [...producto.precioVolumen].sort(
+  // Lista de imágenes con respaldo de la imagen principal
+  const listaImagenes =
+    producto.imagenes && producto.imagenes.length > 0
+      ? producto.imagenes
+      : [producto.imagen];
+
+  // Cálculo de precio según escalonamiento por volumen
+  const obtenerPrecioCalculado = () => {
+    if (!producto.precioVolumen || producto.precioVolumen.length === 0) {
+      return producto.precio;
+    }
+    const escalaOrdenada = [...producto.precioVolumen].sort(
       (a, b) => b.minQty - a.minQty
     );
-    const tier = sortedTiers.find((t) => cantidad >= t.minQty);
-    if (tier) {
-      currentUnitPrice = tier.price;
-    }
-  }
+    const escalaAplicable = escalaOrdenada.find((t) => cantidad >= t.minQty);
+    return escalaAplicable ? escalaAplicable.price : producto.precio;
+  };
 
-  const subtotalLinea = currentUnitPrice * cantidad;
-  const imagenUrl = producto.imagen || "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?auto=format&fit=crop&w=600&q=80";
-  const stockCount = typeof producto.stock === "number" ? producto.stock : 24;
+  const precioUnitarioVigente = obtenerPrecioCalculado();
+  const totalCotizacion = precioUnitarioVigente * cantidad;
 
-  const handleAddToCart = () => {
-    addItem(producto, cantidad, notaInterna);
-    setAdded(true);
-    setTimeout(() => {
-      setAdded(false);
-      onClose();
-    }, 900);
+  const handleAgregarACotizacion = () => {
+    addItem(producto, cantidad);
+    onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
       <div
-        className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-3xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="relative w-full max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto animate-in fade-in zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                {producto.categoria || "Componentes"}
-              </span>
-              <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                {producto.sku || "SKU-B2B"}
-              </span>
-              <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                {stockCount} unidades disponibles
-              </span>
-            </div>
-            <h2 className="text-lg md:text-xl font-bold text-slate-900 leading-snug">
-              {producto.nombre || "Detalle del Producto"}
-            </h2>
-          </div>
+        {/* Botón Cerrar */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 z-20 w-9 h-9 rounded-full bg-slate-100/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer backdrop-blur-xs"
+          aria-label="Cerrar modal"
+        >
+          <X className="w-5 h-5" />
+        </button>
 
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition"
-            aria-label="Cerrar modal"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 p-6 sm:p-8">
+          {/* Columna Izquierda: Galería con Carrusel y Zoom Lupa */}
+          <div className="md:col-span-5 flex flex-col justify-start">
+            <ProductImageGallery
+              images={listaImagenes}
+              productName={producto.nombre}
+            />
 
-        {/* Modal Body */}
-        <div className="p-6 grid grid-cols-1 md:grid-cols-12 gap-6">
-          {/* Columna Izquierda: Imagen y Garantía */}
-          <div className="md:col-span-5 flex flex-col justify-between">
-            <div className="relative h-60 w-full bg-slate-50 rounded-xl border border-slate-200 p-4 flex items-center justify-center">
-              <Image
-                src={imagenUrl}
-                alt={producto.nombre || "Producto"}
-                fill
-                className="object-contain p-2"
-                sizes="(max-width: 768px) 100vw, 400px"
-              />
-            </div>
-
-            <div className="mt-4 p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs space-y-2">
-              <div className="flex items-center gap-2 text-blue-900 font-semibold">
-                <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
-                <span>Garantía Oficial Techsmart B2B</span>
+            {/* Badges de Garantía y Disponibilidad */}
+            <div className="mt-4 grid grid-cols-2 gap-2 text-left">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-[11px] font-semibold text-slate-700 leading-tight">
+                  {producto.garantiaMeses} Meses Garantía
+                </span>
               </div>
-              <p className="text-blue-800 text-[11px] leading-relaxed">
-                {producto.garantiaMeses || 12} meses de respaldo directo. Incluye cambio express inmediato por falla DOA dentro de los primeros 7 días.
-              </p>
-              <div className="flex items-center gap-2 text-slate-600 text-[11px]">
-                <Truck className="w-3.5 h-3.5 text-slate-500" />
-                <span>{producto.bodega || "Bodega Central (San Salvador)"}</span>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2">
+                <Building className="w-4 h-4 text-blue-600 shrink-0" />
+                <span className="text-[11px] font-semibold text-slate-700 leading-tight">
+                  Bodega Central SV
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Columna Derecha: Especificaciones y Precios por Volumen */}
+          {/* Columna Derecha: Especificaciones y Acción de Cotización */}
           <div className="md:col-span-7 flex flex-col justify-between">
-            {/* Especificaciones Técnicas */}
             <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2.5">
-                Especificaciones del Componente
-              </h4>
-              <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 text-xs overflow-hidden">
-                {producto.specs && producto.specs.length > 0 ? (
-                  producto.specs.map((spec, idx) => (
-                    <div
-                      key={idx}
-                      className="grid grid-cols-5 p-2 px-3 hover:bg-slate-50 transition"
-                    >
-                      <span className="col-span-2 font-medium text-slate-500">
-                        {spec.label}:
-                      </span>
-                      <span className="col-span-3 font-semibold text-slate-800">
-                        {spec.value}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-3 text-slate-500 text-xs">
-                    {producto.descripcionLarga || producto.descripcionCorta || "Componente original para distribución mayorista."}
-                  </div>
-                )}
+              {/* Encabezado y Categoría */}
+              <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100">
+                  {producto.categoria}
+                </span>
+                <span className="text-[11px] font-mono font-semibold text-slate-400">
+                  SKU: {producto.sku}
+                </span>
               </div>
 
-              {/* Escala de Precios B2B por Volumen */}
-              <div className="mt-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                  Precios Escalonados B2B
-                </h4>
-                <div className="grid grid-cols-3 gap-2">
-                  {producto.precioVolumen && producto.precioVolumen.length > 0 ? (
-                    producto.precioVolumen.map((tier, idx) => {
-                      const isSelected =
-                        cantidad >= tier.minQty &&
-                        (idx === producto.precioVolumen!.length - 1 ||
-                          cantidad < producto.precioVolumen![idx + 1].minQty);
+              <h2 className="text-lg sm:text-xl font-black text-slate-900 leading-snug">
+                {producto.nombre}
+              </h2>
+
+              <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                {producto.descripcionLarga || producto.descripcionCorta}
+              </p>
+
+              {/* Indicador de Disponibilidad */}
+              <div className="mt-3 flex items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+                  <CheckCircle2 className="w-4 h-4" />
+                  {producto.stock} unidades en stock
+                </span>
+                <span className="text-slate-300">•</span>
+                <span className="text-xs text-slate-500 flex items-center gap-1 font-medium">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  Despacho 24h
+                </span>
+              </div>
+
+              {/* Tabla de Especificaciones Técnicas */}
+              {producto.specs && producto.specs.length > 0 && (
+                <div className="mt-4 border-t border-slate-100 pt-3">
+                  <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                    <Layers className="w-3.5 h-3.5 text-blue-600" />
+                    Ficha Técnica
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs">
+                    {producto.specs.map((spec, i) => (
+                      <div key={i} className="flex flex-col">
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {spec.label}:
+                        </span>
+                        <span className="font-semibold text-slate-800 truncate">
+                          {spec.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Escalas de Precio Mayorista */}
+              {producto.precioVolumen && producto.precioVolumen.length > 0 && (
+                <div className="mt-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
+                    Precios Escalonados por Volumen B2B:
+                  </span>
+                  <div className="grid grid-cols-3 gap-1.5 text-center">
+                    {producto.precioVolumen.map((tier, idx) => {
+                      const isActiveTier =
+                        precioUnitarioVigente === tier.price &&
+                        cantidad >= tier.minQty;
                       return (
                         <div
                           key={idx}
-                          className={`p-2.5 rounded-lg border text-center transition ${
-                            isSelected
-                              ? "border-blue-600 bg-blue-50/70 ring-1 ring-blue-600"
-                              : "border-slate-200 bg-slate-50/50"
+                          className={`p-1.5 rounded-lg border text-[11px] transition ${
+                            isActiveTier
+                              ? "bg-blue-50 border-blue-300 font-bold text-blue-900"
+                              : "bg-white border-slate-200 text-slate-600"
                           }`}
                         >
-                          <span className="text-[10px] text-slate-500 block">
-                            {tier.minQty}+ Unidades
-                          </span>
-                          <span className="text-sm font-bold text-slate-900 block mt-0.5">
-                            ${tier.price.toFixed(2)}
-                          </span>
-                          <span className="text-[10px] text-emerald-600 font-semibold block">
-                            {tier.discountLabel}
-                          </span>
+                          <div className="text-[9px] uppercase font-semibold text-slate-400">
+                            {tier.minQty}+ uds
+                          </div>
+                          <div>${tier.price.toFixed(2)}</div>
                         </div>
                       );
-                    })
-                  ) : (
-                    <div className="col-span-3 p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-center">
-                      Precio B2B: <strong className="text-slate-900">${basePrice.toFixed(2)}</strong> (Consulte con su ejecutivo por volumen adicional)
-                    </div>
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Barra Inferior de Acción y Cotización */}
+            <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-400">
+                  Subtotal Estimado ({cantidad} {cantidad === 1 ? "ud" : "uds"}):
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-slate-900">
+                    ${totalCotizacion.toFixed(2)}
+                  </span>
+                  {precioUnitarioVigente < producto.precio && (
+                    <span className="text-xs text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full">
+                      Ahorro aplicado
+                    </span>
                   )}
                 </div>
               </div>
 
-              {/* Nota o Referencia interna */}
-              <div className="mt-3">
-                <label className="text-[11px] font-medium text-slate-500 block mb-1">
-                  Nota o referencia interna para esta partida (opcional):
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej. Para ensamble Licitación Ministerio, Proyecto Alpha..."
-                  value={notaInterna}
-                  onChange={(e) => setNotaInterna(e.target.value)}
-                  className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            {/* Bottom Actions Row */}
-            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
-              {/* Stepper Cantidad */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-600 font-medium">Cantidad:</span>
-                <div className="flex items-center border border-slate-200 rounded-lg bg-slate-50">
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                {/* Selector de Cantidad */}
+                <div className="flex items-center border border-slate-200 rounded-xl bg-slate-50 p-1">
                   <button
                     type="button"
-                    onClick={() => setCantidad(Math.max(1, cantidad - 1))}
-                    className="px-3 py-1.5 text-slate-600 hover:text-slate-900 font-bold hover:bg-slate-200 rounded-l-lg transition"
+                    onClick={() => setCantidad((prev) => Math.max(1, prev - 1))}
+                    className="w-7 h-7 rounded-lg bg-white shadow-2xs hover:bg-slate-100 text-slate-700 flex items-center justify-center transition cursor-pointer"
+                    aria-label="Disminuir cantidad"
                   >
-                    -
+                    <Minus className="w-3.5 h-3.5" />
                   </button>
-                  <span className="px-3 py-1.5 text-xs font-bold text-slate-900 min-w-8 text-center bg-white border-x border-slate-200">
+                  <span className="w-10 text-center font-bold text-xs text-slate-800">
                     {cantidad}
                   </span>
                   <button
                     type="button"
-                    onClick={() => setCantidad(cantidad + 1)}
-                    className="px-3 py-1.5 text-slate-600 hover:text-slate-900 font-bold hover:bg-slate-200 rounded-r-lg transition"
+                    onClick={() =>
+                      setCantidad((prev) =>
+                        Math.min(producto.stock || 99, prev + 1)
+                      )
+                    }
+                    className="w-7 h-7 rounded-lg bg-white shadow-2xs hover:bg-slate-100 text-slate-700 flex items-center justify-center transition cursor-pointer"
+                    aria-label="Aumentar cantidad"
                   >
-                    +
+                    <Plus className="w-3.5 h-3.5" />
                   </button>
                 </div>
-              </div>
 
-              {/* Subtotal & Add Button */}
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-500 block">Subtotal estimado:</span>
-                  <span className="text-base font-bold text-blue-700">
-                    ${subtotalLinea.toFixed(2)} USD
-                  </span>
-                </div>
-
+                {/* Botón Agregar a Cotización */}
                 <button
                   type="button"
-                  onClick={handleAddToCart}
-                  disabled={added}
-                  className={`py-2 px-4 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md ${
-                    added
-                      ? "bg-emerald-600 text-white shadow-emerald-500/20"
-                      : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30 active:scale-95"
-                  }`}
+                  onClick={handleAgregarACotizacion}
+                  className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs transition flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 cursor-pointer"
                 >
-                  {added ? (
-                    <>
-                      <Check className="w-4 h-4 stroke-[3]" />
-                      <span>Agregado a Cotización</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCart className="w-4 h-4" />
-                      <span>Agregar a Cotización</span>
-                    </>
-                  )}
+                  <ShoppingCart className="w-4 h-4" />
+                  <span>Agregar a Cotización</span>
                 </button>
               </div>
             </div>

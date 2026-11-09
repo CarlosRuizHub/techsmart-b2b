@@ -18,15 +18,15 @@ export interface Producto {
   categoria: string;
   descripcionCorta: string;
   descripcionLarga?: string;
-  precio: number; // Precio B2B unitario base
-  precioVolumen?: VolumePrice[];
+  precio: number;
+  precioVolumen?: { minQty: number; price: number; discountLabel: string }[];
   stock: number;
-  disponibilidad: "inmediato" | "48h" | "bajo_pedido";
+  disponibilidad: "inmediato" | "bajo_pedido";
   bodega: string;
   garantiaMeses: number;
   imagen: string;
-  imagenesAdicionales?: string[];
-  specs: TechnicalSpec[];
+  imagenes?: string[];
+  specs: { label: string; value: string }[];
   destacado?: boolean;
 }
 

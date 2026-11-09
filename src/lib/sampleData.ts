@@ -19,7 +19,12 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 36,
-    imagen: "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1544652478-6653e09f18a2?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Factor de Forma", value: "M.2 2280" },
       { label: "Interfaz / Conexión", value: "PCIe 4.0 x4 NVMe" },
@@ -46,7 +51,12 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 60,
-    imagen: "https://images.unsplash.com/photo-1562976540-1502c2145186?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1562976540-1502c2145186?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1562976540-1502c2145186?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1563770660941-20978e870e26?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Tipo de Memoria", value: "DDR5 DIMM 288-pin" },
       { label: "Capacidad", value: "16GB (1x16GB)" },
@@ -73,7 +83,11 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 12,
-    imagen: "https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1588702547919-26089e690ecc?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Contenido", value: "Negro 65ml + Cian, Magenta, Amarillo 65ml c/u" },
       { label: "Rendimiento Estimado", value: "4,500 págs Negro / 7,500 págs Color" },
@@ -99,7 +113,12 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 36,
-    imagen: "https://images.unsplash.com/photo-1555617981-d790d9657b98?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1555617981-d790d9657b98?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1555617981-d790d9657b98?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Socket", value: "AMD AM5" },
       { label: "Memoria Soportada", value: "4x DIMM DDR5 hasta 128GB 6400+ (OC)" },
@@ -126,7 +145,12 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 36,
-    imagen: "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1555680202-c86f0e12f086?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1555680202-c86f0e12f086?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Núcleos / Hilos", value: "20 Núcleos (8 Performance / 12 Efficient) / 28 Hilos" },
       { label: "Frecuencia Base / Turbo", value: "3.4 GHz / 5.6 GHz Max Turbo" },
@@ -152,7 +176,11 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 84,
-    imagen: "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1544652478-6653e09f18a2?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Potencia Total", value: "750 Watts Continuos" },
       { label: "Eficiencia", value: "80 PLUS Gold (hasta 90% eficiencia)" },
@@ -177,7 +205,11 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 24,
-    imagen: "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Puertos Ethernet", value: "24x 10/100/1000 Mbps RJ45" },
       { label: "Puertos Fibra", value: "2x 10G SFP+ Cages" },
@@ -203,7 +235,11 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 12,
-    imagen: "https://images.unsplash.com/photo-1629654297299-c8506221ca97?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1629654297299-c8506221ca97?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1629654297299-c8506221ca97?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Edición", value: "Windows 11 Professional 64-bit" },
       { label: "Tipo de Licencia", value: "OEM (Original Equipment Manufacturer)" },
@@ -212,7 +248,6 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     ],
     destacado: false,
   },
-
   {
     id: "prod-9",
     sku: "NET-UBIQ-U6-PRO",
@@ -230,7 +265,11 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 24,
-    imagen: "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Estándar Wi-Fi", value: "Wi-Fi 6 (802.11ax)" },
       { label: "Rendimiento 5 GHz", value: "4x4 MU-MIMO y OFDMA hasta 4.8 Gbps" },
@@ -256,7 +295,12 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 36,
-    imagen: "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1544652478-6653e09f18a2?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Capacidad", value: "4TB" },
       { label: "Interfaz", value: "SATA 6 Gb/s" },
@@ -282,7 +326,12 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 60,
-    imagen: "https://images.unsplash.com/photo-1562976540-1502c2145186?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1562976540-1502c2145186?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1562976540-1502c2145186?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1563770660941-20978e870e26?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Capacidad", value: "32GB (1x32GB)" },
       { label: "Tipo", value: "DDR4 Registered ECC DIMM" },
@@ -307,7 +356,11 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 24,
-    imagen: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Puertos Ethernet", value: "1x WAN Gigabit + 2x WAN/LAN Gigabit + 2x LAN Gigabit" },
       { label: "Túneles VPN", value: "Hasta 20 túneles IPsec LAN-to-LAN simultáneos" },
@@ -331,7 +384,11 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 12,
-    imagen: "https://images.unsplash.com/photo-1629654297299-c8506221ca97?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1629654297299-c8506221ca97?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1629654297299-c8506221ca97?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Licenciamiento", value: "Por núcleos (Base de 16 Cores)" },
       { label: "Derechos Virtuales", value: "Hasta 2 máquinas virtuales aisladas" },
@@ -356,7 +413,12 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 36,
-    imagen: "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1555680202-c86f0e12f086?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1555680202-c86f0e12f086?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Núcleos / Hilos", value: "8 Núcleos / 16 Hilos" },
       { label: "Frecuencia Base / Boost", value: "4.5 GHz hasta 5.4 GHz Max Boost" },
@@ -382,7 +444,12 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 60,
-    imagen: "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1544652478-6653e09f18a2?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Factor de Forma", value: "M.2 2280" },
       { label: "Interfaz", value: "PCIe Gen 4.0 x4, NVMe 2.0" },
@@ -407,7 +474,11 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 36,
-    imagen: "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1544652478-6653e09f18a2?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Capacidad de Salida", value: "1000 Watts / 1440 VA" },
       { label: "Forma de Onda", value: "Onda senoidal pura" },
@@ -432,7 +503,12 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 60,
-    imagen: "https://images.unsplash.com/photo-1562976540-1502c2145186?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1562976540-1502c2145186?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1562976540-1502c2145186?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1563770660941-20978e870e26?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Configuración", value: "32GB Kit (2 módulos de 16GB)" },
       { label: "Tipo / Pines", value: "DDR5 DIMM 288-pin" },
@@ -458,7 +534,11 @@ export const SAMPLE_PRODUCTOS: Producto[] = [
     disponibilidad: "inmediato",
     bodega: "Bodega Central (San Salvador)",
     garantiaMeses: 12,
-    imagen: "https://images.unsplash.com/photo-1629654297299-c8506221ca97?auto=format&fit=crop&w=600&q=80",
+    imagen: "https://images.unsplash.com/photo-1629654297299-c8506221ca97?auto=format&fit=crop&w=1200&q=80",
+    imagenes: [
+      "https://images.unsplash.com/photo-1629654297299-c8506221ca97?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
+    ],
     specs: [
       { label: "Modalidad", value: "Compra de pago único (licencia perpetua)" },
       { label: "Aplicaciones Incluidas", value: "Word, Excel, PowerPoint, Outlook, OneNote" },
@@ -598,4 +678,3 @@ export const SAMPLE_TICKETS_RMA: TicketRMA[] = [
     resolucion: "Equipo probado satisfactoriamente bajo carga con Furmark y MemTest86 por 24 horas. Entregado al cliente.",
   },
 ];
-

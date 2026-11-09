@@ -18,6 +18,7 @@ import { Producto } from "@/src/lib/types";
 import { getProductos, seedProductosEnFirestore } from "@/src/lib/firebaseService";
 import { SAMPLE_PRODUCTOS } from "@/src/lib/sampleData";
 
+
 export default function CatalogoPage() {
   const [productos, setProductos] = useState<Producto[]>(SAMPLE_PRODUCTOS);
   const [loading, setLoading] = useState(true);
