@@ -108,3 +108,9 @@ export interface Usuario {
   origen?: "app" | "web"; // Desde dónde se registró el usuario
   createdAt?: unknown; // Timestamp de Firestore (serverTimestamp)
 }
+
+export interface CartItem {
+  producto: Producto;
+  cantidad: number;
+  precioUnitario: number;
+}

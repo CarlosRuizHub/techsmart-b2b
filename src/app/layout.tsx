@@ -4,7 +4,8 @@ import Navbar from "./components/Navbar";
 import { CartProvider } from "../lib/CartContext";
 import CheckoutModal from "./components/CheckoutModal";
 import AuthModal from "./components/AuthModal";
-import { Toaster } from "sonner"; // <-- 1. Importar Toaster
+import WhatsAppWidget from "./components/WhatsAppWidget"; // <-- 1. Importar el Widget
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Techsmart B2B | Distribuidor Mayorista de Tecnología & Hardware",
@@ -19,27 +20,27 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 font-sans selection:bg-blue-600 selection:text-white">
+      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 font-sans">
         <CartProvider>
-          {/* 2. Contenedor de notificaciones moderno */}
           <Toaster richColors position="top-right" closeButton />
-          
-          <Navbar />
+
+          <div className="print:hidden">
+            <Navbar />
+          </div>
+
           <div className="flex-1 flex flex-col">{children}</div>
-          <footer className="bg-slate-900 border-t border-slate-800 text-slate-400 py-6 text-xs text-center">
-            <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <p>© 2026 Techsmart B2B El Salvador. Todos los derechos reservados.</p>
-              <div className="flex items-center space-x-6 text-slate-400">
-                <span>Bodega Central: San Salvador, C.A.</span>
-                <span>PBX: +503 2200-8800</span>
-                <span>soporte@techsmart.sv</span>
-              </div>
-            </div>
+
+          <footer className="print:hidden bg-slate-900 border-t border-slate-800 text-slate-400 py-6 text-xs text-center">
+            {/* Contenido del footer */}
           </footer>
 
-          {/* Modales Globales */}
-          <CheckoutModal />
-          <AuthModal />
+          <div className="print:hidden">
+            <CheckoutModal />
+            <AuthModal />
+          </div>
+
+          {/* 2. Widget de WhatsApp Flotante */}
+          <WhatsAppWidget />
         </CartProvider>
       </body>
     </html>
