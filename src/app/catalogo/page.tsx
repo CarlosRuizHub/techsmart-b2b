@@ -7,7 +7,6 @@ import {
   Grid,
   List,
   ArrowUpDown,
-  Database,
   ChevronRight,
   Loader2,
 } from "lucide-react";
@@ -15,9 +14,11 @@ import ProductCard from "../components/ProductCard";
 import ProductModal from "../components/ProductModal";
 import QuotationSidebar from "../components/QuotationSidebar";
 import { Producto } from "@/src/lib/types";
-import { getProductos, seedProductosEnFirestore } from "@/src/lib/firebaseService";
+import { getProductos } from "@/src/lib/firebaseService";
 import { SAMPLE_PRODUCTOS } from "@/src/lib/sampleData";
-
+import { useCart } from "@/src/lib/CartContext";
+import ProformaPrintView from "../components/ProformaPrintView";
+import CheckoutModal from "../components/CheckoutModal";
 
 export default function CatalogoPage() {
   const [productos, setProductos] = useState<Producto[]>(SAMPLE_PRODUCTOS);
@@ -28,7 +29,9 @@ export default function CatalogoPage() {
   const [onlyInStock, setOnlyInStock] = useState(false);
   const [sortBy, setSortBy] = useState<"populares" | "precio-asc" | "precio-desc" | "nombre">("populares");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [seeding, setSeeding] = useState(false);
+
+  // Datos globales del carrito / cotización
+  const { items, subtotalNeto, ivaEstimado, totalEstimado, currentUser } = useCart();
 
   useEffect(() => {
     async function loadData() {
@@ -44,16 +47,6 @@ export default function CatalogoPage() {
     }
     loadData();
   }, []);
-
-  const handleSeedDatabase = async () => {
-    setSeeding(true);
-    if (seedProductosEnFirestore) {
-      await seedProductosEnFirestore();
-    }
-    const data = await getProductos();
-    setProductos(data);
-    setSeeding(false);
-  };
 
   const categories = [
     { id: "Todos", label: "Todos", count: productos.length },
@@ -105,11 +98,12 @@ export default function CatalogoPage() {
       });
   }, [productos, selectedCategory, searchQuery, onlyInStock, sortBy]);
 
-  return (
-    <main className="min-h-screen bg-slate-50 pb-16">
-      <div className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+ return (
+    <main className="min-h-screen bg-slate-50 pb-16 print:min-h-0 print:p-0 print:pb-0 print:bg-white">
+      {/* 1. VISTA EN PANTALLA: Se oculta por completo durante la impresión */}
+      <div className="print:hidden">
+        <div className="bg-white border-b border-slate-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div>
               <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
                 <span>Techsmart Portal</span>
@@ -123,226 +117,242 @@ export default function CatalogoPage() {
                 Precios preferenciales para integradores certificados, subdistribuidores y corporativos.
               </p>
             </div>
-
-            <div className="flex items-center gap-2 self-start md:self-auto">
-              <button
-                onClick={handleSeedDatabase}
-                disabled={seeding}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 bg-slate-50 hover:bg-slate-100 text-xs font-semibold transition"
-                title="Sincronizar catálogo con Firestore"
-              >
-                <Database className={`w-3.5 h-3.5 ${seeding ? "animate-spin text-blue-600" : "text-slate-500"}`} />
-                <span>{seeding ? "Sincronizando..." : "Sincronizar con Firestore"}</span>
-              </button>
-            </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        <div className="space-y-4 mb-6">
-          <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Buscar por modelo, PN, descripción o marca (Kingston, Intel, ASUS, etc.)..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
-              />
-            </div>
-
-            <div className="flex items-center flex-wrap gap-3">
-              <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+          <div className="space-y-4 mb-6">
+            <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="checkbox"
-                  checked={onlyInStock}
-                  onChange={(e) => setOnlyInStock(e.target.checked)}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                  type="text"
+                  placeholder="Buscar por modelo, PN, descripción o marca (Kingston, Intel, ASUS, etc.)..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
                 />
-                <span>Solo con stock inmediato</span>
-              </label>
-
-              <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-                <select
-                  value={sortBy}
-                  onChange={(e) =>
-                    setSortBy(
-                      e.target.value as "populares" | "precio-asc" | "precio-desc" | "nombre"
-                    )
-                  }
-                  className="bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-2 text-xs text-slate-700 focus:outline-none focus:border-blue-500"
-                >
-                  <option value="populares">Más Populares</option>
-                  <option value="precio-asc">Precio: Menor a Mayor</option>
-                  <option value="precio-desc">Precio: Mayor a Menor</option>
-                  <option value="nombre">Nombre A - Z</option>
-                </select>
               </div>
 
-              <div className="hidden sm:flex items-center border border-slate-200 rounded-lg p-0.5 bg-slate-50">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={`p-1.5 rounded ${viewMode === "grid" ? "bg-white text-blue-600 shadow-xs" : "text-slate-400 hover:text-slate-700"}`}
-                  title="Vista en Cuadrícula"
-                >
-                  <Grid className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`p-1.5 rounded ${viewMode === "list" ? "bg-white text-blue-600 shadow-xs" : "text-slate-400 hover:text-slate-700"}`}
-                  title="Vista en Lista"
-                >
-                  <List className="w-4 h-4" />
-                </button>
+              <div className="flex items-center flex-wrap gap-3">
+                <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={onlyInStock}
+                    onChange={(e) => setOnlyInStock(e.target.checked)}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                  />
+                  <span>Solo con stock inmediato</span>
+                </label>
+
+                <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                  <select
+                    value={sortBy}
+                    onChange={(e) =>
+                      setSortBy(
+                        e.target.value as "populares" | "precio-asc" | "precio-desc" | "nombre"
+                      )
+                    }
+                    className="bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-2 text-xs text-slate-700 focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="populares">Más Populares</option>
+                    <option value="precio-asc">Precio: Menor a Mayor</option>
+                    <option value="precio-desc">Precio: Mayor a Menor</option>
+                    <option value="nombre">Nombre A - Z</option>
+                  </select>
+                </div>
+
+                <div className="hidden sm:flex items-center border border-slate-200 rounded-lg p-0.5 bg-slate-50">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("grid")}
+                    className={`p-1.5 rounded transition cursor-pointer ${viewMode === "grid" ? "bg-white text-blue-600 shadow-xs" : "text-slate-400 hover:text-slate-700"}`}
+                    title="Vista en Cuadrícula"
+                  >
+                    <Grid className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("list")}
+                    className={`p-1.5 rounded transition cursor-pointer ${viewMode === "list" ? "bg-white text-blue-600 shadow-xs" : "text-slate-400 hover:text-slate-700"}`}
+                    title="Vista en Lista"
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {categories.map((cat) => {
-              const isSelected = selectedCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 ${
-                    isSelected
-                      ? "bg-blue-600 text-white shadow-sm shadow-blue-500/20"
-                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  }`}
-                >
-                  <span>{cat.label}</span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                      isSelected ? "bg-blue-700 text-blue-100" : "bg-slate-100 text-slate-500"
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {categories.map((cat) => {
+                const isSelected = selectedCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 cursor-pointer ${
+                      isSelected
+                        ? "bg-blue-600 text-white shadow-sm shadow-blue-500/20"
+                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                     }`}
                   >
-                    {cat.count}
-                  </span>
-                </button>
-              );
-            })}
+                    <span>{cat.label}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                        isSelected ? "bg-blue-700 text-blue-100" : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {cat.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-8">
-            <div className="flex items-center justify-between mb-3 text-xs text-slate-500">
-              <span className="flex items-center gap-2">
-                {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />}
-                Mostrando <strong className="text-slate-800">{filteredProducts.length}</strong> de{" "}
-                {productos.length} productos disponibles
-              </span>
-              {selectedCategory !== "Todos" && (
-                <button
-                  onClick={() => setSelectedCategory("Todos")}
-                  className="text-blue-600 hover:underline font-medium"
-                >
-                  Limpiar filtros
-                </button>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div className="lg:col-span-8">
+              <div className="flex items-center justify-between mb-3 text-xs text-slate-500">
+                <span className="flex items-center gap-2">
+                  {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />}
+                  Mostrando <strong className="text-slate-800">{filteredProducts.length}</strong> de{" "}
+                  {productos.length} productos disponibles
+                </span>
+                {selectedCategory !== "Todos" && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategory("Todos")}
+                    className="text-blue-600 hover:underline font-medium cursor-pointer"
+                  >
+                    Limpiar filtros
+                  </button>
+                )}
+              </div>
+
+              {filteredProducts.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+                  <Search className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                  <h3 className="font-bold text-slate-800 text-base">No se encontraron productos</h3>
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                    Intenta cambiar el término de búsqueda o selecciona otra categoría.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedCategory("Todos");
+                      setOnlyInStock(false);
+                    }}
+                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition cursor-pointer"
+                  >
+                    Restablecer filtros
+                  </button>
+                </div>
+              ) : viewMode === "grid" ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                  {filteredProducts.map((prod) => (
+                    <ProductCard
+                      key={prod.id}
+                      producto={prod}
+                      onOpenModal={(p) => setSelectedProduct(p)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredProducts.map((prod) => (
+                    <div
+                      key={prod.id}
+                      onClick={() => setSelectedProduct(prod)}
+                      className="bg-white p-4 rounded-xl border border-slate-200 hover:border-blue-400 transition shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-4 w-full sm:w-auto">
+                        <div className="relative w-16 h-16 bg-slate-50 border border-slate-100 rounded-lg p-1 shrink-0">
+                          <Image
+                            src={prod.imagen}
+                            alt={prod.nombre}
+                            fill
+                            className="object-contain p-1"
+                            sizes="64px"
+                          />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                              {prod.categoria}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500">
+                              {prod.sku}
+                            </span>
+                          </div>
+                          <h4 className="font-bold text-slate-900 text-sm mt-0.5">
+                            {prod.nombre}
+                          </h4>
+                          <p className="text-xs text-slate-500 line-clamp-1">
+                            {prod.descripcionCorta}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto border-t sm:border-t-0 pt-2 sm:pt-0">
+                        <div className="text-left sm:text-right">
+                          <span className="text-[10px] text-slate-500 block">Precio B2B:</span>
+                          <span className="text-base font-bold text-slate-900">
+                            ${prod.precio.toFixed(2)}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedProduct(prod);
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition cursor-pointer"
+                        >
+                          Ver Detalles
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
-            {filteredProducts.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-                <Search className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                <h3 className="font-bold text-slate-800 text-base">No se encontraron productos</h3>
-                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  Intenta cambiar el término de búsqueda o selecciona otra categoría.
-                </p>
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSelectedCategory("Todos");
-                    setOnlyInStock(false);
-                  }}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition"
-                >
-                  Restablecer filtros
-                </button>
-              </div>
-            ) : viewMode === "grid" ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                {filteredProducts.map((prod) => (
-                  <ProductCard
-                    key={prod.id}
-                    producto={prod}
-                    onOpenModal={(p) => setSelectedProduct(p)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredProducts.map((prod) => (
-                  <div
-                    key={prod.id}
-                    onClick={() => setSelectedProduct(prod)}
-                    className="bg-white p-4 rounded-xl border border-slate-200 hover:border-blue-400 transition shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 cursor-pointer"
-                  >
-                    <div className="flex items-center gap-4 w-full sm:w-auto">
-                      <div className="relative w-16 h-16 bg-slate-50 border border-slate-100 rounded-lg p-1 shrink-0">
-                        <Image
-                          src={prod.imagen}
-                          alt={prod.nombre}
-                          fill
-                          className="object-contain p-1"
-                          sizes="64px"
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold uppercase text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                            {prod.categoria}
-                          </span>
-                          <span className="text-[10px] font-mono text-slate-500">
-                            {prod.sku}
-                          </span>
-                        </div>
-                        <h4 className="font-bold text-slate-900 text-sm mt-0.5">
-                          {prod.nombre}
-                        </h4>
-                        <p className="text-xs text-slate-500 line-clamp-1">
-                          {prod.descripcionCorta}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto border-t sm:border-t-0 pt-2 sm:pt-0">
-                      <div className="text-left sm:text-right">
-                        <span className="text-[10px] text-slate-500 block">Precio B2B:</span>
-                        <span className="text-base font-bold text-slate-900">
-                          ${prod.precio.toFixed(2)}
-                        </span>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedProduct(prod);
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition"
-                      >
-                        Ver Detalles
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="lg:col-span-4">
-            <QuotationSidebar />
+            <div className="lg:col-span-4">
+              <QuotationSidebar />
+            </div>
           </div>
         </div>
+
+        <ProductModal
+          producto={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+        />
+
+        {/* Modal de Pago / Checkout montado en el DOM */}
+        <CheckoutModal />
       </div>
 
-      <ProductModal
-        producto={selectedProduct}
-        onClose={() => setSelectedProduct(null)}
+      {/* 2. VISTA DE IMPRESIÓN PROFORMA (Se activa exclusivamente al imprimir) */}
+      <ProformaPrintView
+        folio="COT-CATALOGO"
+        cliente={{
+          razonSocial: currentUser?.razonSocial || "Consumidor Final",
+          nit: currentUser?.nit || "N/D",
+          nombreContacto: currentUser?.nombreContacto || "Cliente Registrado",
+          telefono: currentUser?.telefono || "N/D",
+          correo: currentUser?.correo || "",
+          tipoCliente: currentUser?.tipoCuenta === "personal" ? "Cliente Particular" : "Empresa / Corporativo",
+        }}
+        items={items}
+        subtotal={subtotalNeto}
+        iva={ivaEstimado}
+        total={totalEstimado}
+        tiempoEntrega="Inmediato (24h)"
+        validezDias={8}
+        notas="Cotización rápida generada desde el Catálogo Mayorista."
       />
     </main>
-  );
-}
+  )}

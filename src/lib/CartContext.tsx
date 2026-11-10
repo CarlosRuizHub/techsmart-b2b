@@ -20,10 +20,12 @@ interface CartContextType {
   ivaEstimado: number;
   totalEstimado: number;
   lineaCreditoDisponible: number;
-  // Modal de Pago / Checkout
+  // Modal de Pago / Checkout (soportando ambos nombres)
   isCheckoutOpen: boolean;
   openCheckout: () => void;
   closeCheckout: () => void;
+  openCheckoutModal: () => void;
+  closeCheckoutModal: () => void;
   // Modal y Estado de Autenticación Global
   currentUser: Usuario | null;
   isAuthOpen: boolean;
@@ -43,7 +45,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
-  
+
   // Producto pendiente de cotizar tras autenticarse
   const [pendingItem, setPendingItem] = useState<{
     producto: Producto;
@@ -54,7 +56,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const isMounted = useRef(false);
   const lineaCreditoDisponible = currentUser?.lineaCredito ?? 25000.0;
 
-  // 1. Cargar carrito y usuario desde localStorage (para mostrar la interfaz al instante)
+  // 1. Cargar carrito y usuario desde localStorage
   useEffect(() => {
     try {
       const savedCart = localStorage.getItem(LOCAL_STORAGE_CART);
@@ -73,8 +75,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // 1b. Sincronizar con Firebase Authentication, que es la fuente de verdad de la sesión.
-  // Si Firebase no tiene sesión, se descarta cualquier usuario guardado en localStorage.
+  // 1b. Sincronizar con Firebase Authentication
   useEffect(() => {
     const cancelarSuscripcion = observarSesion(async (firebaseUser) => {
       if (!firebaseUser?.email) {
@@ -87,8 +88,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Se carga el perfil actualizado. Si todavía no existe (por ejemplo, justo al
-      // registrarse), no se hace nada: login() lo establecerá cuando termine el registro.
       const perfil = await obtenerUsuarioPorCorreo(firebaseUser.email);
       if (perfil) {
         setCurrentUser(perfil);
@@ -116,17 +115,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [items]);
 
-  // Controles de modales
+  // Controles del modal de Checkout (con soporte para ambos nombres)
   const openCheckout = () => setIsCheckoutOpen(true);
   const closeCheckout = () => setIsCheckoutOpen(false);
+  const openCheckoutModal = () => setIsCheckoutOpen(true);
+  const closeCheckoutModal = () => setIsCheckoutOpen(false);
 
+  // Controles de autenticación
   const openAuthModal = () => setIsAuthOpen(true);
   const closeAuthModal = () => {
     setIsAuthOpen(false);
     setPendingItem(null);
   };
 
-  // Lógica interna para insertar el producto al carrito
   const executeAddItem = (producto: Producto, cantidad = 1, nota = "") => {
     setItems((prev) => {
       const existingIndex = prev.findIndex((i) => i.producto.id === producto.id);
@@ -167,7 +168,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  // Interceptor: valida sesión antes de agregar a la cotización
   const addItem = (producto: Producto, cantidad = 1, nota = "") => {
     if (!currentUser) {
       setPendingItem({ producto, cantidad, nota });
@@ -177,7 +177,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     executeAddItem(producto, cantidad, nota);
   };
 
-  // Iniciar sesión y procesar producto pendiente
   const login = (user: Usuario) => {
     setCurrentUser(user);
     localStorage.setItem(LOCAL_STORAGE_USER, JSON.stringify(user));
@@ -189,8 +188,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Cerrar sesión: cierra también la sesión de Firebase y vacía la cotización en curso
-  // para que no pase a la siguiente persona que use este navegador.
   const logout = () => {
     cerrarSesion().catch((e) => console.error("Error cerrando sesión:", e));
     setCurrentUser(null);
@@ -267,9 +264,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         ivaEstimado,
         totalEstimado,
         lineaCreditoDisponible,
+        // Checkout modal
         isCheckoutOpen,
         openCheckout,
         closeCheckout,
+        openCheckoutModal,
+        closeCheckoutModal,
+        // Auth modal
         currentUser,
         isAuthOpen,
         openAuthModal,

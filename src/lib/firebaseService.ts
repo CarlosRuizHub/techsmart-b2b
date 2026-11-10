@@ -19,16 +19,22 @@ import {
   signOut,
   sendPasswordResetEmail,
   onAuthStateChanged,
+  confirmPasswordReset,
+  verifyPasswordResetCode,
+  type ActionCodeSettings,
   type User,
 } from "firebase/auth";
 import { db, storage, auth } from "./firebase";
-import { Producto, Cotizacion, TicketRMA, Usuario } from "./types";
+import { Producto, Cotizacion, TicketRMA, Usuario, OrdenCompra } from "./types";
 import { SAMPLE_PRODUCTOS } from "./sampleData";
+
+auth.languageCode = "es";
 
 const STORAGE_KEYS = {
   COTIZACIONES: "techsmart_cotizaciones_local",
   RMA: "techsmart_rma_local",
   CART: "techsmart_cart_items",
+  ORDENES: "techsmart_ordenes_local",
 };
 
 // ================= UTILIDADES DE SESIÓN Y RESPALDO LOCAL =================
@@ -76,7 +82,188 @@ function marcaDeTiempo(data: DocumentData): number {
   return c && typeof c.toMillis === "function" ? c.toMillis() : 0;
 }
 
+// Firestore rechaza valores undefined (por ejemplo razonSocial en cuentas personales)
+function sinUndefined<T extends object>(obj: T): T {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined),
+  ) as T;
+}
+
+function fechaRegistroActual(): string {
+  return new Date().toLocaleDateString("es-SV", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+// ================= AUTENTICACIÓN Y USUARIOS =================
+
+export const LINEA_CREDITO_INICIAL = {
+  empresarial: 25000,
+  personal: 3500,
+} as const;
+
+export function mensajeErrorAuth(err: unknown): string {
+  const code = err instanceof FirebaseError ? err.code : "";
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "Este correo ya está registrado en el portal.";
+    case "auth/weak-password":
+      return "La contraseña debe tener al menos 6 caracteres.";
+    case "auth/invalid-email":
+      return "El correo electrónico no tiene un formato válido.";
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "Correo o contraseña incorrectos.";
+    case "auth/too-many-requests":
+      return "Demasiados intentos fallidos. Inténtalo de nuevo más tarde.";
+    case "auth/network-request-failed":
+      return "Error de red: verifica tu conexión a internet.";
+    case "auth/expired-action-code":
+      return "El enlace de seguridad ha expirado. Por favor solicita uno nuevo.";
+    case "auth/invalid-action-code":
+      return "Este enlace ya fue utilizado o no es válido.";
+    // Directiva de contraseñas reutilizadas
+    case "auth/password-already-used":
+    case "auth/password-history-violation":
+      return "No puedes utilizar una contraseña que hayas ocupado anteriormente. Por favor elige una clave nueva.";
+    default:
+      return "Ocurrió un error al procesar la solicitud. Inténtalo de nuevo.";
+  }
+}
+
+// Registra al cliente: crea la cuenta en Authentication y su perfil en Firestore
+export async function registrarUsuario(
+  datos: Omit<
+    Usuario,
+    "id" | "rol" | "estado" | "fechaRegistro" | "origen" | "lineaCredito"
+  > & {
+    password: string;
+  },
+): Promise<Usuario> {
+  const correoNormalizado = datos.correo.trim().toLowerCase();
+  const { password, ...restoDatos } = datos;
+
+  await createUserWithEmailAndPassword(auth, correoNormalizado, password);
+
+  const nuevoUsuario: Usuario = sinUndefined({
+    ...restoDatos,
+    correo: correoNormalizado,
+    rol: "cliente_b2b" as const,
+    lineaCredito: LINEA_CREDITO_INICIAL[datos.tipoCuenta],
+    estado: "activo" as const,
+    fechaRegistro: fechaRegistroActual(),
+    origen: "web" as const,
+    createdAt: serverTimestamp(),
+  });
+
+  await setDoc(doc(db, "usuarios", correoNormalizado), nuevoUsuario);
+  return { id: correoNormalizado, ...nuevoUsuario };
+}
+
+// Inicio de sesión: valida con Firebase Auth y devuelve el perfil del cliente
+export async function iniciarSesion(
+  correo: string,
+  password: string,
+): Promise<Usuario> {
+  const correoNormalizado = correo.trim().toLowerCase();
+  const credencial = await signInWithEmailAndPassword(
+    auth,
+    correoNormalizado,
+    password,
+  );
+
+  const docRef = doc(db, "usuarios", correoNormalizado);
+  const snap = await getDoc(docRef);
+
+  if (snap.exists()) {
+    return { id: snap.id, ...(snap.data() as Omit<Usuario, "id">) };
+  }
+
+  const perfilBasico: Usuario = {
+    tipoCuenta: "personal",
+    nombreContacto: credencial.user.displayName ?? "",
+    telefono: "",
+    correo: correoNormalizado,
+    rol: "cliente_b2b",
+    lineaCredito: LINEA_CREDITO_INICIAL.personal,
+    estado: "activo",
+    fechaRegistro: fechaRegistroActual(),
+    origen: "web",
+    createdAt: serverTimestamp(),
+  };
+  await setDoc(docRef, perfilBasico);
+  return { id: correoNormalizado, ...perfilBasico };
+}
+
+export async function cerrarSesion(): Promise<void> {
+  await signOut(auth);
+}
+
+// Envía el correo con la URL exclusiva configurada para redirigir a /restablecer-password
+export async function enviarRecuperacionPassword(
+  correo: string,
+): Promise<void> {
+  const correoLimpio = correo.trim().toLowerCase();
+
+  const baseUrl =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "http://localhost:3000";
+
+  const actionCodeSettings: ActionCodeSettings = {
+    url: `${baseUrl}/restablecer-password`,
+    handleCodeInApp: true,
+  };
+
+  await sendPasswordResetEmail(auth, correoLimpio, actionCodeSettings);
+}
+
+// Verifica que el código recibido en la URL (oobCode) sea válido y no haya expirado
+export async function verificarCodigoPassword(codigo: string): Promise<string> {
+  return await verifyPasswordResetCode(auth, codigo);
+}
+
+// Guarda la nueva contraseña en Firebase Authentication
+export async function confirmarNuevaPassword(
+  codigo: string,
+  nuevaPassword: string,
+): Promise<void> {
+  await confirmPasswordReset(auth, codigo, nuevaPassword);
+}
+
+export function observarSesion(callback: (user: User | null) => void) {
+  return onAuthStateChanged(auth, callback);
+}
+
+export async function obtenerUsuarioPorCorreo(
+  correo: string,
+): Promise<Usuario | null> {
+  try {
+    const idNormalizado = correo.trim().toLowerCase();
+    const q = query(
+      collection(db, "usuarios"),
+      where("correo", "==", idNormalizado),
+    );
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) return null;
+
+    const docSnap = snapshot.docs[0];
+    return {
+      id: docSnap.id,
+      ...(docSnap.data() as Omit<Usuario, "id">),
+    };
+  } catch (error) {
+    console.error("Error al consultar cliente:", error);
+    return null;
+  }
+}
+
 // ================= PRODUCTOS =================
+
 export async function getProductos(): Promise<Producto[]> {
   try {
     const colRef = collection(db, "productos");
@@ -143,9 +330,6 @@ export async function getProductos(): Promise<Producto[]> {
   }
 }
 
-// Inicializar catálogo en Firestore si está vacío.
-// OJO: con las reglas de seguridad nuevas el cliente ya no puede escribir en "productos";
-// la carga inicial debe hacerse con el script de sembrado (Admin SDK) o desde la consola.
 export async function seedProductosEnFirestore(): Promise<void> {
   try {
     const colRef = collection(db, "productos");
@@ -166,10 +350,7 @@ export async function seedProductosEnFirestore(): Promise<void> {
 }
 
 // ================= COTIZACIONES =================
-// Cada cotización pertenece a la cuenta que la creó (campo "usuarioCorreo").
-// El campo "correo" sigue siendo el correo de contacto escrito en el formulario.
 
-// Devuelve solo las cotizaciones del usuario con sesión iniciada
 export async function getCotizaciones(): Promise<Cotizacion[]> {
   const usuarioCorreo = await correoDeSesion();
   if (!usuarioCorreo) return [];
@@ -208,7 +389,6 @@ export async function guardarCotizacion(
     throw new Error("Debes iniciar sesión para guardar una cotización.");
   }
 
-  // El propietario siempre es la cuenta con sesión, sin importar lo que llegue del formulario
   const datos = { ...cotizacion, usuarioCorreo };
 
   try {
@@ -229,7 +409,6 @@ export async function guardarCotizacion(
 
     return nuevaCotizacion;
   } catch (err) {
-    // Sin sesión o sin permiso: no se esconde con un respaldo local
     if (esErrorDePermisos(err)) throw err;
 
     console.warn(
@@ -252,10 +431,96 @@ export async function guardarCotizacion(
   }
 }
 
-// ================= TICKETS RMA =================
-// Igual que las cotizaciones: cada ticket pertenece a la cuenta que lo creó.
+// ================= ÓRDENES DE COMPRA / HISTORIAL DE PEDIDOS =================
 
-// Devuelve solo los tickets del usuario con sesión iniciada
+export async function getOrdenesCompra(): Promise<OrdenCompra[]> {
+  const usuarioCorreo = await correoDeSesion();
+  if (!usuarioCorreo) return [];
+
+  try {
+    const q = query(
+      collection(db, "ordenes_compra"),
+      where("usuarioCorreo", "==", usuarioCorreo),
+    );
+    const snapshot = await getDocs(q);
+
+    const lista = [...snapshot.docs]
+      .sort((a, b) => marcaDeTiempo(b.data()) - marcaDeTiempo(a.data()))
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as OrdenCompra);
+
+    guardarLocal(STORAGE_KEYS.ORDENES, usuarioCorreo, lista);
+    return lista;
+  } catch (err) {
+    if (esErrorDePermisos(err)) {
+      console.error("Sin permiso para leer órdenes:", err);
+      return [];
+    }
+    console.warn(
+      "Error leyendo órdenes de Firestore, usando respaldo local:",
+      err,
+    );
+    return leerLocal<OrdenCompra>(STORAGE_KEYS.ORDENES, usuarioCorreo);
+  }
+}
+
+export async function guardarOrdenCompra(
+  orden: Omit<OrdenCompra, "id">,
+): Promise<OrdenCompra> {
+  const usuarioCorreo = await correoDeSesion();
+  if (!usuarioCorreo) {
+    throw new Error(
+      "Debes iniciar sesión para procesar y registrar una orden.",
+    );
+  }
+
+  const datosOrden = {
+    ...orden,
+    usuarioCorreo,
+  };
+
+  try {
+    const docRef = await addDoc(collection(db, "ordenes_compra"), {
+      ...datosOrden,
+      createdAt: serverTimestamp(),
+    });
+
+    const nuevaOrden: OrdenCompra = { id: docRef.id, ...datosOrden };
+
+    const actuales = leerLocal<OrdenCompra>(
+      STORAGE_KEYS.ORDENES,
+      usuarioCorreo,
+    );
+    guardarLocal(STORAGE_KEYS.ORDENES, usuarioCorreo, [
+      nuevaOrden,
+      ...actuales.filter((o) => o.id !== docRef.id),
+    ]);
+
+    return nuevaOrden;
+  } catch (err) {
+    if (esErrorDePermisos(err)) throw err;
+
+    console.warn(
+      "Firestore error guardando orden, guardando en respaldo local:",
+      err,
+    );
+    const nuevaOrden: OrdenCompra = {
+      ...datosOrden,
+      id: `local-ord-${Date.now()}`,
+    };
+    const actuales = leerLocal<OrdenCompra>(
+      STORAGE_KEYS.ORDENES,
+      usuarioCorreo,
+    );
+    guardarLocal(STORAGE_KEYS.ORDENES, usuarioCorreo, [
+      nuevaOrden,
+      ...actuales,
+    ]);
+    return nuevaOrden;
+  }
+}
+
+// ================= TICKETS RMA =================
+
 export async function getTicketsRMA(): Promise<TicketRMA[]> {
   const usuarioCorreo = await correoDeSesion();
   if (!usuarioCorreo) return [];
@@ -321,7 +586,8 @@ export async function crearTicketRMA(
   }
 }
 
-// ================= SUBIDA DE ARCHIVOS A FIREBASE STORAGE =================
+// ================= SUBIDA DE ARCHIVOS A STORAGE =================
+
 export async function subirArchivoAdjunto(
   file: File,
   folder: "rfq" | "rma" = "rfq",
@@ -332,7 +598,6 @@ export async function subirArchivoAdjunto(
     const downloadUrl = await getDownloadURL(snapshot.ref);
     return downloadUrl;
   } catch (err) {
-    // Sin sesión o sin permiso: una URL local simulada no le serviría a nadie
     if (
       err instanceof FirebaseError &&
       (err.code === "storage/unauthorized" ||
@@ -342,163 +607,5 @@ export async function subirArchivoAdjunto(
     }
     console.warn("Firebase storage error, generando URL local simulada:", err);
     return URL.createObjectURL(file);
-  }
-}
-
-// ================= AUTENTICACIÓN Y USUARIOS =================
-// Las cuentas viven en Firebase Authentication (compartidas con la app móvil).
-// El perfil del cliente se guarda en Firestore, colección "usuarios",
-// con el correo normalizado como ID del documento.
-
-// Traduce los errores de Firebase Auth a mensajes para el usuario
-export function mensajeErrorAuth(err: unknown): string {
-  const code = err instanceof FirebaseError ? err.code : "";
-  switch (code) {
-    case "auth/email-already-in-use":
-      return "Este correo ya está registrado.";
-    case "auth/weak-password":
-      return "La contraseña debe tener al menos 6 caracteres.";
-    case "auth/invalid-email":
-      return "El correo no es válido.";
-    case "auth/invalid-credential":
-    case "auth/wrong-password":
-    case "auth/user-not-found":
-      return "Correo o contraseña incorrectos.";
-    case "auth/too-many-requests":
-      return "Demasiados intentos. Inténtalo de nuevo más tarde.";
-    case "auth/network-request-failed":
-      return "Sin conexión a internet.";
-    default:
-      return "Ocurrió un error. Inténtalo de nuevo.";
-  }
-}
-
-function fechaRegistroActual(): string {
-  return new Date().toLocaleDateString("es-SV", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-// Firestore rechaza valores undefined (por ejemplo razonSocial en cuentas personales)
-function sinUndefined<T extends object>(obj: T): T {
-  return Object.fromEntries(
-    Object.entries(obj).filter(([, v]) => v !== undefined),
-  ) as T;
-}
-
-// Línea de crédito inicial según el tipo de cuenta.
-// Las reglas de Firestore validan estos mismos valores: si cambian aquí, hay que cambiarlos allá.
-export const LINEA_CREDITO_INICIAL = {
-  empresarial: 25000,
-  personal: 3500,
-} as const;
-
-// Registra al cliente: crea la cuenta en Authentication y su perfil en Firestore
-export async function registrarUsuario(
-  datos: Omit<
-    Usuario,
-    "id" | "rol" | "estado" | "fechaRegistro" | "origen" | "lineaCredito"
-  > & {
-    password: string;
-  },
-): Promise<Usuario> {
-  const correoNormalizado = datos.correo.trim().toLowerCase();
-
-  // Se separa password para que bajo ninguna circunstancia se guarde en Firestore
-  const { password, ...restoDatos } = datos;
-
-  // 1. Cuenta en Firebase Authentication (la contraseña la gestiona Firebase)
-  await createUserWithEmailAndPassword(auth, correoNormalizado, password);
-
-  // 2. Perfil en Firestore
-  const nuevoUsuario: Usuario = sinUndefined({
-    ...restoDatos,
-    correo: correoNormalizado,
-    rol: "cliente_b2b" as const,
-    lineaCredito: LINEA_CREDITO_INICIAL[datos.tipoCuenta],
-    estado: "activo" as const,
-    fechaRegistro: fechaRegistroActual(),
-    origen: "web" as const,
-    createdAt: serverTimestamp(),
-  });
-
-  await setDoc(doc(db, "usuarios", correoNormalizado), nuevoUsuario);
-  return { id: correoNormalizado, ...nuevoUsuario };
-}
-
-// Inicio de sesión: valida con Firebase Auth y devuelve el perfil del cliente
-export async function iniciarSesion(
-  correo: string,
-  password: string,
-): Promise<Usuario> {
-  const correoNormalizado = correo.trim().toLowerCase();
-  const credencial = await signInWithEmailAndPassword(
-    auth,
-    correoNormalizado,
-    password,
-  );
-
-  const docRef = doc(db, "usuarios", correoNormalizado);
-  const snap = await getDoc(docRef);
-
-  if (snap.exists()) {
-    return { id: snap.id, ...(snap.data() as Omit<Usuario, "id">) };
-  }
-
-  // La cuenta existe en Authentication pero no tiene perfil en Firestore
-  // (por ejemplo, si falló el guardado durante el registro): se crea uno básico.
-  const perfilBasico: Usuario = {
-    tipoCuenta: "personal",
-    nombreContacto: credencial.user.displayName ?? "",
-    telefono: "",
-    correo: correoNormalizado,
-    rol: "cliente_b2b",
-    lineaCredito: LINEA_CREDITO_INICIAL.personal,
-    estado: "activo",
-    fechaRegistro: fechaRegistroActual(),
-    origen: "web",
-    createdAt: serverTimestamp(),
-  };
-  await setDoc(docRef, perfilBasico);
-  return { id: correoNormalizado, ...perfilBasico };
-}
-
-export async function cerrarSesion(): Promise<void> {
-  await signOut(auth);
-}
-
-export async function enviarRecuperacionPassword(correo: string): Promise<void> {
-  await sendPasswordResetEmail(auth, correo.trim().toLowerCase());
-}
-
-// Para escuchar cambios de sesión (por ejemplo desde un contexto de React)
-export function observarSesion(callback: (user: User | null) => void) {
-  return onAuthStateChanged(auth, callback);
-}
-
-// Búsqueda de perfil de cliente por correo
-export async function obtenerUsuarioPorCorreo(
-  correo: string,
-): Promise<Usuario | null> {
-  try {
-    const idNormalizado = correo.trim().toLowerCase();
-    const q = query(
-      collection(db, "usuarios"),
-      where("correo", "==", idNormalizado),
-    );
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) return null;
-
-    const docSnap = snapshot.docs[0];
-    return {
-      id: docSnap.id,
-      ...(docSnap.data() as Omit<Usuario, "id">),
-    };
-  } catch (error) {
-    console.error("Error al consultar cliente:", error);
-    return null;
   }
 }

@@ -65,6 +65,32 @@ export interface Cotizacion {
   archivoAdjuntoUrl?: string;
 }
 
+export interface OrdenCompra {
+  id: string;
+  folio: string;
+  usuarioCorreo: string;
+  fecha: string;
+  items: ItemCotizacion[];
+  subtotal: number;
+  iva: number;
+  total: number;
+  metodoPago: "linea_credito" | "tarjeta";
+  detallePago: {
+    tipo: "linea_credito" | "tarjeta";
+    ultimosCuatroDigitos?: string; // Ej: "4758"
+    titular?: string; // Nombre del titular
+    marcaTarjeta?: string; // "Visa", "Mastercard", etc.
+  };
+  envio: {
+    departamento: string;
+    direccionExacta: string;
+    personaRecibe: string;
+    telefonoContacto: string;
+  };
+  estado: "procesando" | "preparando_despacho" | "en_ruta" | "entregado";
+  createdAt?: unknown;
+}
+
 export type RMAEstado =
   | "Reportado"
   | "Recibido en Bodega"
@@ -102,7 +128,7 @@ export interface Usuario {
   telefono: string;
   correo: string;
   rol: "cliente_b2b";
-  lineaCredito: number; // Cupo inicial según tipo de cuenta (empresarial 25000, personal 3500); solo un administrador puede cambiarlo
+  lineaCredito: number; 
   estado: "activo";
   fechaRegistro: string;
   origen?: "app" | "web"; // Desde dónde se registró el usuario

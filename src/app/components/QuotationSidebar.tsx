@@ -1,16 +1,16 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import Image from "next/image";
 import {
   ShoppingCart,
   Trash2,
   ArrowRight,
-  FileDown,
+  Printer,
   CheckCircle2,
   FileSpreadsheet,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useCart } from "@/src/lib/CartContext";
 
 export default function QuotationSidebar() {
@@ -24,10 +24,27 @@ export default function QuotationSidebar() {
     descuentoTotal,
     ivaEstimado,
     totalEstimado,
+    openCheckoutModal,
   } = useCart();
 
   const handlePrintProforma = () => {
+    if (items.length === 0) {
+      toast.warning("Lista vacía", {
+        description: "Agrega al menos un ítem a la lista para generar la proforma.",
+      });
+      return;
+    }
     window.print();
+  };
+
+  const handleFinalizarCompra = () => {
+    if (items.length === 0) {
+      toast.warning("Lista vacía", {
+        description: "Agrega al menos un producto antes de proceder al pago.",
+      });
+      return;
+    }
+    openCheckoutModal();
   };
 
   return (
@@ -50,8 +67,9 @@ export default function QuotationSidebar() {
 
         {items.length > 0 && (
           <button
+            type="button"
             onClick={clearCart}
-            className="text-[11px] text-slate-400 hover:text-rose-600 transition flex items-center gap-1"
+            className="text-[11px] text-slate-400 hover:text-rose-600 transition flex items-center gap-1 cursor-pointer"
             title="Vaciar lista"
           >
             <Trash2 className="w-3 h-3" />
@@ -105,10 +123,11 @@ export default function QuotationSidebar() {
                 <div className="flex items-center justify-between mt-2">
                   <div className="flex items-center border border-slate-200 rounded bg-slate-50 text-xs">
                     <button
+                      type="button"
                       onClick={() =>
                         updateQuantity(item.producto.id, item.cantidad - 1)
                       }
-                      className="px-2 py-0.5 text-slate-600 hover:text-slate-900 font-bold hover:bg-slate-200"
+                      className="px-2 py-0.5 text-slate-600 hover:text-slate-900 font-bold hover:bg-slate-200 cursor-pointer"
                     >
                       -
                     </button>
@@ -116,10 +135,11 @@ export default function QuotationSidebar() {
                       {item.cantidad}
                     </span>
                     <button
+                      type="button"
                       onClick={() =>
                         updateQuantity(item.producto.id, item.cantidad + 1)
                       }
-                      className="px-2 py-0.5 text-slate-600 hover:text-slate-900 font-bold hover:bg-slate-200"
+                      className="px-2 py-0.5 text-slate-600 hover:text-slate-900 font-bold hover:bg-slate-200 cursor-pointer"
                     >
                       +
                     </button>
@@ -130,8 +150,9 @@ export default function QuotationSidebar() {
                       ${(item.precioUnitario * item.cantidad).toFixed(2)}
                     </span>
                     <button
+                      type="button"
                       onClick={() => removeItem(item.producto.id)}
-                      className="text-slate-300 hover:text-rose-500 transition p-0.5"
+                      className="text-slate-300 hover:text-rose-500 transition p-0.5 cursor-pointer"
                       title="Eliminar partida"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -177,20 +198,22 @@ export default function QuotationSidebar() {
 
           {/* Action buttons */}
           <div className="pt-3 space-y-2">
-            <Link
-              href="/cotizador"
-              className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-blue-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition duration-200"
+            <button
+              type="button"
+              onClick={handleFinalizarCompra}
+              className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-blue-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition duration-200 cursor-pointer"
             >
-              <span>Generar Cotización Express</span>
+              <span>Finalizar Orden y Pagar</span>
               <ArrowRight className="w-4 h-4" />
-            </Link>
+            </button>
 
             <button
+              type="button"
               onClick={handlePrintProforma}
-              className="w-full py-2 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs flex items-center justify-center gap-2 transition"
+              className="w-full py-2 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
             >
-              <FileDown className="w-3.5 h-3.5 text-slate-500" />
-              <span>Descargar Proforma Borrador</span>
+              <Printer className="w-3.5 h-3.5 text-slate-500" />
+              <span>Imprimir Proforma Borrador</span>
             </button>
           </div>
 

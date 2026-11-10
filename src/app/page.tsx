@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Layers,
-  ShieldCheck,
   FileSpreadsheet,
   CheckCircle,
   ArrowRight,
@@ -35,7 +34,7 @@ function AbrirAccesoDesdeUrl() {
 // con Firebase Authentication. Esta página solo lo abre.
 export default function LandingB2BPage() {
   const router = useRouter();
-  const { openCheckout, openAuthModal, currentUser } = useCart();
+  const { openAuthModal, currentUser } = useCart();
 
   // Con sesión iniciada el botón lleva directo al catálogo
   const ingresarAlPortal = () => {
@@ -64,11 +63,9 @@ export default function LandingB2BPage() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-bold uppercase tracking-wider mb-6">
-              <Layers className="w-3.5 h-3.5" /> INFRAESTRUCTURA 4.0 AUTOMATIZADA
-            </span>
+            
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
-              Hub Logístico Automatizado &<br />
+              Servicio Logístico Automatizado &<br />
               <span className="text-blue-400">Stock en Tiempo Real</span>
             </h1>
             <p className="mt-4 text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl">
@@ -78,12 +75,9 @@ export default function LandingB2BPage() {
             <div className="mt-8 grid grid-cols-3 gap-4 max-w-xl border-t border-slate-800 pt-8">
               <div>
                 <span className="block text-2xl lg:text-3xl font-extrabold text-white">+150,000</span>
-                <span className="text-[10px] sm:text-xs text-slate-400 font-medium">SKUs Listos</span>
+                <span className="text-[10px] sm:text-xs text-slate-400 font-medium">Productos Listos</span>
               </div>
-              <div>
-                <span className="block text-2xl lg:text-3xl font-extrabold text-white"> 15 min</span>
-                <span className="text-[10px] sm:text-xs text-slate-400 font-medium">Packing Despacho</span>
-              </div>
+              
               <div>
                 <span className="block text-2xl lg:text-3xl font-extrabold text-white">100%</span>
                 <span className="text-[10px] sm:text-xs text-slate-400 font-medium">Trazabilidad SKU</span>
@@ -180,7 +174,9 @@ export default function LandingB2BPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Contenedor centrado para 2 columnas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* Tarjeta 1: Cotizador Express */}
             <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between">
               <div>
                 <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-4">
@@ -204,6 +200,7 @@ export default function LandingB2BPage() {
               </Link>
             </div>
 
+            {/* Tarjeta 2: Catálogo Directo */}
             <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between">
               <div>
                 <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-4">
@@ -225,29 +222,6 @@ export default function LandingB2BPage() {
               >
                 Ver Catálogo de SKUs ↗
               </Link>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between">
-              <div>
-                <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-4">
-                  <ShieldCheck className="w-4 h-4 text-blue-600" />
-                </div>
-                <h3 className="font-extrabold text-slate-900 text-base">Licitaciones & Compras Corp</h3>
-                <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                  Mesa consultiva para pliegos de contratación pública y privada, emisión de cartas de distribuidor oficial y entregas calendarizadas.
-                </p>
-                <ul className="mt-4 space-y-2 text-xs text-slate-600 font-medium border-t border-slate-100 pt-4">
-                  <li className="flex items-center gap-2">✓ Cartas de respaldo de fabricante.</li>
-                  <li className="flex items-center gap-2">✓ Cotizaciones fijas hasta 90 días.</li>
-                  <li className="flex items-center gap-2">✓ Asesoría de ingeniería preventa.</li>
-                </ul>
-              </div>
-              <button
-                onClick={openCheckout}
-                className="mt-6 w-full py-2.5 rounded-xl border border-dashed border-blue-300 bg-blue-50/50 hover:bg-blue-50 text-blue-700 font-bold text-xs transition cursor-pointer"
-              >
-                Cargar Pliego de Licitación 💾
-              </button>
             </div>
           </div>
         </div>
