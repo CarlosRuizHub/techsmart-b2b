@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Headphones, ShieldCheck } from "lucide-react";
+import { Headphones} from "lucide-react";
 
 interface WhatsAppB2BCardProps {
   numeroTelefono?: string;
