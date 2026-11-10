@@ -19,6 +19,7 @@ import { SAMPLE_PRODUCTOS } from "@/src/lib/sampleData";
 import { useCart } from "@/src/lib/CartContext";
 import ProformaPrintView from "../components/ProformaPrintView";
 import CheckoutModal from "../components/CheckoutModal";
+import WhatsAppB2BCard from "../components/WhatsAppB2BCard";
 
 export default function CatalogoPage() {
   const [productos, setProductos] = useState<Producto[]>(SAMPLE_PRODUCTOS);
@@ -320,9 +321,10 @@ export default function CatalogoPage() {
               )}
             </div>
 
-            <div className="lg:col-span-4">
-              <QuotationSidebar />
-            </div>
+            <div className="lg:col-span-4 space-y-4">
+            <QuotationSidebar />
+            <WhatsAppB2BCard />
+          </div>
           </div>
         </div>
 
